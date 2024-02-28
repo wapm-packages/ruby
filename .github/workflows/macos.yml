@@ -119,7 +119,7 @@ jobs:
         if: steps.enable_launchable.outputs.enable_launchable
 
       - name: Set up Java
-        uses: actions/setup-java@7a445ee88d4e23b52c33fdc7601e40278616c7f8 # v4.0.0
+        uses: actions/setup-java@9704b39bf258b59bc04b50fa2dd55e9ed76b47a8 # v4.0.0
         with:
           distribution: 'temurin'
           java-version: '17'
