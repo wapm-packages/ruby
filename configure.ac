@@ -489,7 +489,6 @@ AC_CACHE_CHECK([for $AR flags], [rb_cv_arflags], [
 	[rb_cv_arflags=rcD], [rb_cv_arflags=rcu])
 ])
 AC_SUBST(ARFLAGS, ["$rb_cv_arflags "])
-AC_SUBST(ASFLAGS)
 
 AS_CASE(["$target_os"],
 [cygwin*|msys*|mingw*], [
@@ -1007,58 +1006,6 @@ AC_SUBST(incflags, "$INCFLAGS")
 test -z "${ac_env_CFLAGS_set}" -a -n "${cflags+set}" && eval CFLAGS="\"$cflags $ARCH_FLAG\""
 test -z "${ac_env_CXXFLAGS_set}" -a -n "${cxxflags+set}" && eval CXXFLAGS="\"$cxxflags $ARCH_FLAG\""
 
-# The lines above expand out the $cflags/$optflags/$debugflags/$hardenflags variables into the
-# CFLAGS variable. So, at this point, we have a $CFLAGS var with the actual compiler flags we're
-# going to use.
-# That means this is the right time to check what branch protection flags are going to be in use
-# and define appropriate macros for use in Context.S based on this
-AS_CASE(["$target_cpu"], [aarch64], [
-    AC_CACHE_CHECK([whether __ARM_FEATURE_BTI_DEFAULT is defined],
-        rb_cv_aarch64_bti_enabled,
-        AC_COMPILE_IFELSE(
-            [AC_LANG_PROGRAM([[
-                @%:@ifndef __ARM_FEATURE_BTI_DEFAULT
-                @%:@error "__ARM_FEATURE_BTI_DEFAULT not defined"
-                @%:@endif
-            ]])],
-        [rb_cv_aarch64_bti_enabled=yes],
-        [rb_cv_aarch64_bti_enabled=no])
-    )
-    AS_IF([test "$rb_cv_aarch64_bti_enabled" = yes],
-          AC_DEFINE(RUBY_AARCH64_BTI_ENABLED, 1))
-    AC_CACHE_CHECK([whether __ARM_FEATURE_PAC_DEFAULT is defined],
-        rb_cv_aarch64_pac_enabled,
-        AC_COMPILE_IFELSE(
-            [AC_LANG_PROGRAM([[
-                @%:@ifndef __ARM_FEATURE_PAC_DEFAULT
-                @%:@error "__ARM_FEATURE_PAC_DEFAULT not defined"
-                @%:@endif
-            ]])],
-        [rb_cv_aarch64_pac_enabled=yes],
-        [rb_cv_aarch64_pac_enabled=no])
-    )
-    AS_IF([test "$rb_cv_aarch64_pac_enabled" = yes],
-          AC_DEFINE(RUBY_AARCH64_PAC_ENABLED, 1))
-    # Context.S will only ever sign its return address with the A-key; it doesn't support
-    # the B-key at the moment.
-    AS_IF([test "$rb_cv_aarch64_pac_enabled" = yes], [
-        AC_CACHE_CHECK([whether __ARM_FEATURE_PAC_DEFAULT specifies the b-key bit 0x02],
-            rb_cv_aarch64_pac_b_key,
-            AC_COMPILE_IFELSE(
-                [AC_LANG_PROGRAM([[
-                    @%:@ifdef __ARM_FEATURE_PAC_DEFAULT
-                    @%:@if __ARM_FEATURE_PAC_DEFAULT & 0x02
-                    @%:@error "__ARM_FEATURE_PAC_DEFAULT specifies B key"
-                    @%:@endif
-                    @%:@endif
-                ]])],
-            [rb_cv_aarch64_pac_b_key=no],
-            [rb_cv_aarch64_pac_b_key=yes])
-        )
-        AS_IF([test "$rb_cv_aarch64_pac_b_key" = yes],
-            AC_MSG_ERROR(-mbranch-protection flag specified b-key but Ruby's Context.S does not support this yet.))
-    ])
-])
 
 AC_CACHE_CHECK([whether compiler has statement and declarations in expressions],
   rb_cv_have_stmt_and_decl_in_expr,
@@ -1125,7 +1072,6 @@ AS_CASE(["$target_os"],
 		AS_IF([test $gcc_major -eq 4 -a $gcc_minor -lt 3], [
 		    ac_cv_func___builtin_setjmp=no
 		])
-		with_setjmp_type=sigsetjmp # to hijack SIGCHLD handler
 		AC_CACHE_CHECK(for broken crypt with 8bit chars, rb_cv_broken_crypt,
 		    [AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <stdio.h>
@@ -1440,6 +1386,7 @@ AC_CHECK_HEADERS(utime.h)
 AC_CHECK_HEADERS(sys/epoll.h)
 AC_CHECK_HEADERS(sys/event.h)
 AC_CHECK_HEADERS(stdckdint.h)
+AC_CHECK_HEADERS(stdatomic.h)
 
 AS_CASE("$target_cpu", [x64|x86_64|i[3-6]86*], [
   AC_CHECK_HEADERS(x86intrin.h)
@@ -1716,7 +1663,7 @@ AS_IF([test "$rb_cv_func_weak" != x], [
    AC_DEFINE(HAVE_FUNC_WEAK)
 ])
 
-AC_CACHE_CHECK([for __attribute__((__depreacted__(msg))) in C++],
+AC_CACHE_CHECK([for __attribute__((__deprecated__(msg))) in C++],
   rb_cv_CentOS6_CXX_workaround,
   RUBY_WERROR_FLAG([
     AC_LANG_PUSH([C++])
@@ -2121,6 +2068,7 @@ AC_CHECK_FUNCS(_longjmp)		# used for AC_ARG_WITH(setjmp-type)
 test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=no
 AC_CHECK_FUNCS(arc4random_buf)
 AC_CHECK_FUNCS(atan2l atan2f)
+AC_CHECK_DECLS(atomic_signal_fence, [], [], [#include <stdatomic.h>])
 AC_CHECK_FUNCS(chmod)
 AC_CHECK_FUNCS(chown)
 AC_CHECK_FUNCS(chroot)
@@ -3968,17 +3916,17 @@ AS_CASE(["${YJIT_SUPPORT}"],
     ],
     [dev], [
 	rb_rust_target_subdir=debug
-	CARGO_BUILD_ARGS='--features stats,disasm'
+	CARGO_BUILD_ARGS='--features disasm,runtime_checks'
 	AC_DEFINE(RUBY_DEBUG, 1)
     ],
     [dev_nodebug], [
 	rb_rust_target_subdir=dev_nodebug
-	CARGO_BUILD_ARGS='--profile dev_nodebug --features stats,disasm'
+	CARGO_BUILD_ARGS='--profile dev_nodebug --features disasm'
 	AC_DEFINE(YJIT_STATS, 1)
     ],
     [stats], [
 	rb_rust_target_subdir=stats
-	CARGO_BUILD_ARGS='--profile stats --features stats'
+	CARGO_BUILD_ARGS='--profile stats'
 	AC_DEFINE(YJIT_STATS, 1)
     ])
 
@@ -4749,7 +4697,7 @@ config_summary "target OS"           "$target_os"
 config_summary "compiler"            "$CC"
 config_summary "with thread"         "$THREAD_MODEL"
 config_summary "with coroutine"      "$coroutine_type"
-config_summary "with shared GC"      "$with_shared_gc"
+config_summary "with shared GC"      "$shared_gc_summary"
 config_summary "enable shared libs"  "$ENABLE_SHARED"
 config_summary "dynamic library ext" "$DLEXT"
 config_summary "CFLAGS"              "$cflags"

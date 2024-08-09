@@ -322,16 +322,32 @@ enum_count(int argc, VALUE *argv, VALUE obj)
     return imemo_count_value(memo);
 }
 
+NORETURN(static void found(VALUE i, VALUE memop));
+static void
+found(VALUE i, VALUE memop) {
+    struct MEMO *memo = MEMO_CAST(memop);
+    MEMO_V1_SET(memo, i);
+    memo->u3.cnt = 1;
+    rb_iter_break();
+}
+
+static VALUE
+find_i_fast(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
+{
+    if (RTEST(rb_yield_values2(argc, argv))) {
+        ENUM_WANT_SVALUE();
+        found(i, memop);
+    }
+    return Qnil;
+}
+
 static VALUE
 find_i(RB_BLOCK_CALL_FUNC_ARGLIST(i, memop))
 {
     ENUM_WANT_SVALUE();
 
     if (RTEST(enum_yield(argc, i))) {
-        struct MEMO *memo = MEMO_CAST(memop);
-        MEMO_V1_SET(memo, i);
-        memo->u3.cnt = 1;
-        rb_iter_break();
+        found(i, memop);
     }
     return Qnil;
 }
@@ -366,7 +382,10 @@ enum_find(int argc, VALUE *argv, VALUE obj)
     if_none = rb_check_arity(argc, 0, 1) ? argv[0] : Qnil;
     RETURN_ENUMERATOR(obj, argc, argv);
     memo = MEMO_NEW(Qundef, 0, 0);
-    rb_block_call(obj, id_each, 0, 0, find_i, (VALUE)memo);
+    if (rb_block_pair_yield_optimizable())
+        rb_block_call2(obj, id_each, 0, 0, find_i_fast, (VALUE)memo, RB_BLOCK_NO_USE_PACKED_ARGS);
+    else
+        rb_block_call2(obj, id_each, 0, 0, find_i, (VALUE)memo, RB_BLOCK_NO_USE_PACKED_ARGS);
     if (memo->u3.cnt) {
         return memo->v1;
     }
@@ -1724,6 +1743,9 @@ enum_sort_by(VALUE obj)
 
 #define ENUMFUNC(name) argc ? name##_eqq : rb_block_given_p() ? name##_iter_i : name##_i
 
+#define ENUM_BLOCK_CALL(name) \
+    rb_block_call2(obj, id_each, 0, 0, ENUMFUNC(name), (VALUE)memo, rb_block_given_p() && rb_block_pair_yield_optimizable() ? RB_BLOCK_NO_USE_PACKED_ARGS : 0);
+
 #define MEMO_ENUM_NEW(v1) (rb_check_arity(argc, 0, 1), MEMO_NEW((v1), (argc ? *argv : 0), 0))
 
 #define DEFINE_ENUMFUNCS(name) \
@@ -1817,7 +1839,7 @@ enum_all(int argc, VALUE *argv, VALUE obj)
 {
     struct MEMO *memo = MEMO_ENUM_NEW(Qtrue);
     WARN_UNUSED_BLOCK(argc);
-    rb_block_call(obj, id_each, 0, 0, ENUMFUNC(all), (VALUE)memo);
+    ENUM_BLOCK_CALL(all);
     return memo->v1;
 }
 
@@ -1879,7 +1901,7 @@ enum_any(int argc, VALUE *argv, VALUE obj)
 {
     struct MEMO *memo = MEMO_ENUM_NEW(Qfalse);
     WARN_UNUSED_BLOCK(argc);
-    rb_block_call(obj, id_each, 0, 0, ENUMFUNC(any), (VALUE)memo);
+    ENUM_BLOCK_CALL(any);
     return memo->v1;
 }
 
@@ -2168,7 +2190,7 @@ enum_one(int argc, VALUE *argv, VALUE obj)
     VALUE result;
 
     WARN_UNUSED_BLOCK(argc);
-    rb_block_call(obj, id_each, 0, 0, ENUMFUNC(one), (VALUE)memo);
+    ENUM_BLOCK_CALL(one);
     result = memo->v1;
     if (UNDEF_P(result)) return Qfalse;
     return result;
@@ -2229,7 +2251,7 @@ enum_none(int argc, VALUE *argv, VALUE obj)
     struct MEMO *memo = MEMO_ENUM_NEW(Qtrue);
 
     WARN_UNUSED_BLOCK(argc);
-    rb_block_call(obj, id_each, 0, 0, ENUMFUNC(none), (VALUE)memo);
+    ENUM_BLOCK_CALL(none);
     return memo->v1;
 }
 

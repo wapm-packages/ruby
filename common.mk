@@ -1203,6 +1203,7 @@ BUILTIN_RB_SRCS = \
 		$(srcdir)/trace_point.rb \
 		$(srcdir)/warning.rb \
 		$(srcdir)/array.rb \
+		$(srcdir)/hash.rb \
 		$(srcdir)/kernel.rb \
 		$(srcdir)/ractor.rb \
 		$(srcdir)/symbol.rb \
@@ -1665,8 +1666,8 @@ no-test-bundler-parallel:
 # The annocheck supports ELF format binaries compiled for any OS and for any
 # architecture. It is designed to be independent of the host OS and the
 # architecture. The test-annocheck.sh requires docker or podman.
-test-annocheck: $(PROGRAM)
-	$(tooldir)/test-annocheck.sh $(PROGRAM)
+test-annocheck: $(PROGRAM) $(LIBRUBY_SO)
+	$(tooldir)/test-annocheck.sh $(PROGRAM) $(LIBRUBY_SO)
 
 GEM = up
 sync-default-gems:
@@ -1903,6 +1904,18 @@ rewindable:
 	$(GIT) -C $(srcdir) diff --quiet
 
 HELP_EXTRA_TASKS = ""
+
+shared-gc: probes.h
+	$(Q) if test -z $(shared_gc_dir); then \
+		echo "You must configure with --with-shared-gc to use shared GC"; \
+		exit 1; \
+	elif test -z $(SHARED_GC); then \
+		echo "You must specify SHARED_GC with the GC to build"; \
+		exit 1; \
+	else \
+		echo generating $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT); \
+		$(LDSHARED) -I$(srcdir)/include -I$(srcdir) -I$(arch_hdrdir) $(XDLDFLAGS) $(cflags) -DBUILDING_SHARED_GC -fPIC -o $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT) $(srcdir)/gc/$(SHARED_GC).c; \
+	fi
 
 help: PHONY
 	$(MESSAGE_BEGIN) \
@@ -7224,6 +7237,9 @@ gc.$(OBJEXT): $(CCAN_DIR)/str/str.h
 gc.$(OBJEXT): $(hdrdir)/ruby.h
 gc.$(OBJEXT): $(hdrdir)/ruby/ruby.h
 gc.$(OBJEXT): $(hdrdir)/ruby/version.h
+gc.$(OBJEXT): $(top_srcdir)/gc/default.c
+gc.$(OBJEXT): $(top_srcdir)/gc/gc.h
+gc.$(OBJEXT): $(top_srcdir)/gc/gc_impl.h
 gc.$(OBJEXT): $(top_srcdir)/internal/array.h
 gc.$(OBJEXT): $(top_srcdir)/internal/basic_operators.h
 gc.$(OBJEXT): $(top_srcdir)/internal/bignum.h
@@ -7481,11 +7497,13 @@ gc.$(OBJEXT): {$(VPATH)}thread.h
 gc.$(OBJEXT): {$(VPATH)}thread_$(THREAD_MODEL).h
 gc.$(OBJEXT): {$(VPATH)}thread_native.h
 gc.$(OBJEXT): {$(VPATH)}util.h
+gc.$(OBJEXT): {$(VPATH)}vm.h
 gc.$(OBJEXT): {$(VPATH)}vm_callinfo.h
 gc.$(OBJEXT): {$(VPATH)}vm_core.h
 gc.$(OBJEXT): {$(VPATH)}vm_debug.h
 gc.$(OBJEXT): {$(VPATH)}vm_opts.h
 gc.$(OBJEXT): {$(VPATH)}vm_sync.h
+gc.$(OBJEXT): {$(VPATH)}yjit.h
 goruby.$(OBJEXT): $(CCAN_DIR)/check_type/check_type.h
 goruby.$(OBJEXT): $(CCAN_DIR)/container_of/container_of.h
 goruby.$(OBJEXT): $(CCAN_DIR)/list/list.h
@@ -7785,12 +7803,14 @@ hash.$(OBJEXT): {$(VPATH)}backward/2/limits.h
 hash.$(OBJEXT): {$(VPATH)}backward/2/long_long.h
 hash.$(OBJEXT): {$(VPATH)}backward/2/stdalign.h
 hash.$(OBJEXT): {$(VPATH)}backward/2/stdarg.h
+hash.$(OBJEXT): {$(VPATH)}builtin.h
 hash.$(OBJEXT): {$(VPATH)}config.h
 hash.$(OBJEXT): {$(VPATH)}constant.h
 hash.$(OBJEXT): {$(VPATH)}debug_counter.h
 hash.$(OBJEXT): {$(VPATH)}defines.h
 hash.$(OBJEXT): {$(VPATH)}encoding.h
 hash.$(OBJEXT): {$(VPATH)}hash.c
+hash.$(OBJEXT): {$(VPATH)}hash.rbinc
 hash.$(OBJEXT): {$(VPATH)}id.h
 hash.$(OBJEXT): {$(VPATH)}id_table.h
 hash.$(OBJEXT): {$(VPATH)}intern.h

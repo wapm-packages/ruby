@@ -175,7 +175,7 @@ class Gem::Specification < Gem::BasicSpecification
   end
 
   @@attributes = @@default_value.keys.sort_by(&:to_s)
-  @@array_attributes = @@default_value.reject {|_k,v| v != [] }.keys
+  @@array_attributes = @@default_value.select {|_k,v| v.is_a?(Array) }.keys
   @@nil_attributes, @@non_nil_attributes = @@default_value.keys.partition do |k|
     @@default_value[k].nil?
   end
@@ -546,9 +546,9 @@ class Gem::Specification < Gem::BasicSpecification
   #
   # Usage:
   #
-  #   spec.add_runtime_dependency 'example', '~> 1.1', '>= 1.1.4'
+  #   spec.add_dependency 'example', '~> 1.1', '>= 1.1.4'
 
-  def add_runtime_dependency(gem, *requirements)
+  def add_dependency(gem, *requirements)
     if requirements.uniq.size != requirements.size
       warn "WARNING: duplicated #{gem} dependency #{requirements}"
     end
@@ -874,7 +874,7 @@ class Gem::Specification < Gem::BasicSpecification
   # You probably want to use one of the Enumerable methods instead.
 
   def self.all
-    warn "NOTE: Specification.all called from #{caller.first}" unless
+    warn "NOTE: Specification.all called from #{caller(1, 1).first}" unless
       Gem::Deprecate.skip
     _all
   end
@@ -1504,7 +1504,7 @@ class Gem::Specification < Gem::BasicSpecification
 
   private :add_dependency_with_type
 
-  alias_method :add_dependency, :add_runtime_dependency
+  alias_method :add_runtime_dependency, :add_dependency
 
   ##
   # Adds this spec's require paths to LOAD_PATH, in the proper location.

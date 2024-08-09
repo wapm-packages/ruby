@@ -726,13 +726,6 @@ rb_check_funcall_with_hook_kw(VALUE recv, ID mid, int argc, const VALUE *argv,
     return rb_vm_call_kw(ec, recv, mid, argc, argv, me, kw_splat);
 }
 
-VALUE
-rb_check_funcall_with_hook(VALUE recv, ID mid, int argc, const VALUE *argv,
-                           rb_check_funcall_hook *hook, VALUE arg)
-{
-    return rb_check_funcall_with_hook_kw(recv, mid, argc, argv, hook, arg, RB_NO_KEYWORDS);
-}
-
 const char *
 rb_type_str(enum ruby_value_type type)
 {
@@ -1556,6 +1549,37 @@ rb_block_call_kw(VALUE obj, ID mid, int argc, const VALUE * argv,
     arg.argv = argv;
     arg.kw_splat = kw_splat;
     return rb_iterate_internal(iterate_method, (VALUE)&arg, bl_proc, data2);
+}
+
+/*
+ * A flexible variant of rb_block_call and rb_block_call_kw.
+ * This function accepts flags:
+ *
+ *   RB_NO_KEYWORDS, RB_PASS_KEYWORDS, RB_PASS_CALLED_KEYWORDS:
+ *   Works as the same as rb_block_call_kw.
+ *
+ *   RB_BLOCK_NO_USE_PACKED_ARGS:
+ *   The given block ("bl_proc") does not use "yielded_arg" of rb_block_call_func_t.
+ *   Instead, the block accesses the yielded arguments via "argc" and "argv".
+ *   This flag allows the called method to yield arguments without allocating an Array.
+ */
+VALUE
+rb_block_call2(VALUE obj, ID mid, int argc, const VALUE *argv,
+               rb_block_call_func_t bl_proc, VALUE data2, long flags)
+{
+    struct iter_method_arg arg;
+
+    arg.obj = obj;
+    arg.mid = mid;
+    arg.argc = argc;
+    arg.argv = argv;
+    arg.kw_splat = flags & 1;
+
+    struct vm_ifunc *ifunc = rb_vm_ifunc_proc_new(bl_proc, (void *)data2);
+    if (flags & RB_BLOCK_NO_USE_PACKED_ARGS)
+        ifunc->flags |= IFUNC_YIELD_OPTIMIZABLE;
+
+    return rb_iterate0(iterate_method, (VALUE)&arg, ifunc, GET_EC());
 }
 
 VALUE

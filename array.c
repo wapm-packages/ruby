@@ -370,6 +370,7 @@ ary_heap_free(VALUE ary)
 static size_t
 ary_heap_realloc(VALUE ary, size_t new_capa)
 {
+    RUBY_ASSERT(!OBJ_FROZEN(ary));
     SIZED_REALLOC_N(RARRAY(ary)->as.heap.ptr, VALUE, new_capa, ARY_HEAP_CAPA(ary));
     ary_verify(ary);
 
@@ -441,7 +442,10 @@ ary_shrink_capa(VALUE ary)
     long old_capa = ARY_HEAP_CAPA(ary);
     RUBY_ASSERT(!ARY_SHARED_P(ary));
     RUBY_ASSERT(old_capa >= capacity);
-    if (old_capa > capacity) ary_heap_realloc(ary, capacity);
+    if (old_capa > capacity) {
+        size_t new_capa = ary_heap_realloc(ary, capacity);
+        ARY_SET_CAPA(ary, new_capa);
+    }
 
     ary_verify(ary);
 }
@@ -639,6 +643,14 @@ ary_ensure_room_for_push(VALUE ary, long add_len)
 VALUE
 rb_ary_freeze(VALUE ary)
 {
+    RUBY_ASSERT(RB_TYPE_P(ary, T_ARRAY));
+
+    if (OBJ_FROZEN(ary)) return ary;
+
+    if (!ARY_EMBED_P(ary) && !ARY_SHARED_P(ary) && !ARY_SHARED_ROOT_P(ary)) {
+        ary_shrink_capa(ary);
+    }
+
     return rb_obj_freeze(ary);
 }
 
@@ -889,7 +901,7 @@ rb_setup_fake_ary(struct RArray *fake_ary, const VALUE *list, long len, bool fre
     ARY_SET_PTR(ary, list);
     ARY_SET_HEAP_LEN(ary, len);
     ARY_SET_CAPA(ary, len);
-    if (freeze) OBJ_FREEZE(ary);
+    if (freeze) rb_ary_freeze(ary);
     return ary;
 }
 
@@ -916,9 +928,6 @@ ary_make_shared(VALUE ary)
         return ary;
     }
     else if (OBJ_FROZEN(ary)) {
-        if (!ARY_EMBED_P(ary)) {
-            ary_shrink_capa(ary);
-        }
         return ary;
     }
     else {
@@ -1007,14 +1016,16 @@ rb_to_array(VALUE ary)
  *  call-seq:
  *    Array.try_convert(object) -> object, new_array, or nil
  *
- *  If +object+ is an +Array+ object, returns +object+.
+ *  Attempts to return an array, based on the given +object+.
  *
- *  Otherwise if +object+ responds to <tt>:to_ary</tt>,
- *  calls <tt>object.to_ary</tt> and returns the result.
+ *  If +object+ is an array, returns +object+.
  *
- *  Returns +nil+ if +object+ does not respond to <tt>:to_ary</tt>
+ *  Otherwise if +object+ responds to <tt>:to_ary</tt>.
+ *  calls <tt>object.to_ary</tt>:
+ *  if the return value is an array or +nil+, returns that value;
+ *  if not, raises TypeError.
  *
- *  Raises an exception unless <tt>object.to_ary</tt> returns an +Array+ object.
+ *  Otherwise returns +nil+.
  */
 
 static VALUE
@@ -1051,48 +1062,49 @@ rb_ary_s_new(int argc, VALUE *argv, VALUE klass)
  *  call-seq:
  *    Array.new -> new_empty_array
  *    Array.new(array) -> new_array
- *    Array.new(size) -> new_array
- *    Array.new(size, default_value) -> new_array
- *    Array.new(size) {|index| ... } -> new_array
+ *    Array.new(size, default_value = nil) -> new_array
+ *    Array.new(size = 0) {|index| ... } -> new_array
  *
- *  Returns a new +Array+.
+ *  Returns a new array.
  *
- *  With no block and no arguments, returns a new empty +Array+ object.
+ *  With no block and no argument given, returns a new empty array:
  *
- *  With no block and a single +Array+ argument +array+,
- *  returns a new +Array+ formed from +array+:
+ *    Array.new # => []
  *
- *    a = Array.new([:foo, 'bar', 2])
- *    a.class # => Array
- *    a # => [:foo, "bar", 2]
+ *  With no block and array argument given, returns a new array with the same elements:
  *
- *  With no block and a single Integer argument +size+,
- *  returns a new +Array+ of the given size
- *  whose elements are all +nil+:
+ *    Array.new([:foo, 'bar', 2]) # => [:foo, "bar", 2]
  *
- *    a = Array.new(3)
- *    a # => [nil, nil, nil]
+ *  With no block and integer argument given, returns a new array containing
+ *  that many instances of the given +default_value+:
  *
- *  With no block and arguments +size+ and +default_value+,
- *  returns an +Array+ of the given size;
- *  each element is that same +default_value+:
+ *    Array.new(0)    # => []
+ *    Array.new(3)    # => [nil, nil, nil]
+ *    Array.new(2, 3) # => [3, 3]
  *
- *    a = Array.new(3, 'x')
- *    a # => ['x', 'x', 'x']
+ *  With a block given, returns an array of the given +size+;
+ *  calls the block with each +index+ in the range <tt>(0...size)</tt>;
+ *  the element at that +index+ in the returned array is the blocks return value:
  *
- *  With a block and argument +size+,
- *  returns an +Array+ of the given size;
- *  the block is called with each successive integer +index+;
- *  the element for that +index+ is the return value from the block:
+ *    Array.new(3)  {|index| "Element #{index}" } # => ["Element 0", "Element 1", "Element 2"]
  *
- *    a = Array.new(3) {|index| "Element #{index}" }
- *    a # => ["Element 0", "Element 1", "Element 2"]
+ *  A common pitfall for new Rubyists is providing an expression as +default_value+:
  *
- *  Raises ArgumentError if +size+ is negative.
+ *    array = Array.new(2, {})
+ *    array # => [{}, {}]
+ *    array[0][:a] = 1
+ *    array # => [{a: 1}, {a: 1}], as array[0] and array[1] are same object
  *
- *  With a block and no argument,
- *  or a single argument +0+,
- *  ignores the block and returns a new empty +Array+.
+ *  If you want the elements of the array to be distinct, you should pass a block:
+ *
+ *    array = Array.new(2) { {} }
+ *    array # => [{}, {}]
+ *    array[0][:a] = 1
+ *    array # => [{a: 1}, {}], as array[0] and array[1] are different objects
+ *
+ *  Raises TypeError if the first argument is not either an array
+ *  or an {integer-convertible object}[rdoc-ref:implicit_conversion.rdoc@Integer-Convertible+Objects]).
+ *  Raises ArgumentError if the first argument is a negative integer.
  */
 
 static VALUE
@@ -1150,11 +1162,12 @@ rb_ary_initialize(int argc, VALUE *argv, VALUE ary)
 }
 
 /*
- * Returns a new array populated with the given objects.
+ * Returns a new array, populated with the given objects:
  *
- *   Array.[]( 1, 'a', /^A/)  # => [1, "a", /^A/]
- *   Array[ 1, 'a', /^A/ ]    # => [1, "a", /^A/]
- *   [ 1, 'a', /^A/ ]         # => [1, "a", /^A/]
+ *   Array[1, 'a', /^A/]    # => [1, "a", /^A/]
+ *   Array[]                # => []
+ *   Array.[](1, 'a', /^A/) # => [1, "a", /^A/]
+ *
  */
 
 static VALUE
@@ -1333,18 +1346,15 @@ ary_take_first_or_last(int argc, const VALUE *argv, VALUE ary, enum ary_take_pos
 
 /*
  *  call-seq:
- *    array << object -> self
+ *    self << object -> self
  *
- *  Appends +object+ to +self+; returns +self+:
+ *  Appends +object+ as the last element in +self+; returns +self+:
  *
- *    a = [:foo, 'bar', 2]
- *    a << :baz # => [:foo, "bar", 2, :baz]
+ *    [:foo, 'bar', 2] << :baz # => [:foo, "bar", 2, :baz]
  *
- *  Appends +object+ as one element, even if it is another +Array+:
+ *  Appends +object+ as a single element, even if it is another array:
  *
- *    a = [:foo, 'bar', 2]
- *    a1 = a << [3, 4]
- *    a1 # => [:foo, "bar", 2, [3, 4]]
+ *    [:foo, 'bar', 2] << [3, 4] # => [:foo, "bar", 2, [3, 4]]
  *
  */
 
@@ -1735,35 +1745,42 @@ static VALUE rb_ary_aref2(VALUE ary, VALUE b, VALUE e);
 
 /*
  *  call-seq:
- *    array[index] -> object or nil
- *    array[start, length] -> object or nil
- *    array[range] -> object or nil
- *    array[aseq] -> object or nil
- *    array.slice(index) -> object or nil
- *    array.slice(start, length) -> object or nil
- *    array.slice(range) -> object or nil
- *    array.slice(aseq) -> object or nil
+ *    self[index] -> object or nil
+ *    self[start, length] -> object or nil
+ *    self[range] -> object or nil
+ *    self[aseq] -> object or nil
+ *    slice(index) -> object or nil
+ *    slice(start, length) -> object or nil
+ *    slice(range) -> object or nil
+ *    slice(aseq) -> object or nil
  *
  *  Returns elements from +self+; does not modify +self+.
  *
  *  In brief:
  *
  *    a = [:foo, 'bar', 2]
- *    a[0]     # => :foo
- *    a[-1]    # => 2
- *    a[1, 2]  # => ["bar", 2]
- *    a[0..1]  # => [:foo, "bar"]
- *    a[0..-2] # => [:foo, "bar"]
- *    a[-2..2] # => ["bar", 2]
  *
- *  When a single Integer argument +index+ is given, returns the element at offset +index+:
+ *    # Single argument index: returns one element.
+ *    a[0]     # => :foo          # Zero-based index.
+ *    a[-1]    # => 2             # Negative index counts backwards from end.
+ *
+ *    # Arguments start and length: returns an array.
+ *    a[1, 2]  # => ["bar", 2]
+ *    a[-2, 2] # => ["bar", 2]    # Negative start counts backwards from end.
+ *
+ *    # Single argument range: returns an array.
+ *    a[0..1]  # => [:foo, "bar"]
+ *    a[0..-2] # => [:foo, "bar"] # Negative range-begin counts backwards from end.
+ *    a[-2..2] # => ["bar", 2]    # Negative range-end counts backwards from end.
+ *
+ *  When a single integer argument +index+ is given, returns the element at offset +index+:
  *
  *    a = [:foo, 'bar', 2]
  *    a[0] # => :foo
  *    a[2] # => 2
  *    a # => [:foo, "bar", 2]
  *
- *  If +index+ is negative, counts relative to the end of +self+:
+ *  If +index+ is negative, counts backwards from the end of +self+:
  *
  *    a = [:foo, 'bar', 2]
  *    a[-1] # => 2
@@ -2301,15 +2318,16 @@ ary_aset_by_rb_ary_splice(VALUE ary, long beg, long len, VALUE val)
 
 /*
  *  call-seq:
- *    array[index] = object -> object
- *    array[start, length] = object -> object
- *    array[range] = object -> object
+ *    self[index] = object -> object
+ *    self[start, length] = object -> object
+ *    self[range] = object -> object
  *
- *  Assigns elements in +self+; returns the given +object+.
+ *  Assigns elements in +self+, based on the given +object+; returns +object+.
  *
  *  In brief:
  *
  *      a_orig = [:foo, 'bar', 2]
+ *
  *      # With argument index.
  *      a = a_orig.dup
  *      a[0] = 'foo' # => "foo"
@@ -2317,6 +2335,7 @@ ary_aset_by_rb_ary_splice(VALUE ary, long beg, long len, VALUE val)
  *      a = a_orig.dup
  *      a[7] = 'foo' # => "foo"
  *      a # => [:foo, "bar", 2, nil, nil, nil, nil, "foo"]
+ *
  *      # With arguments start and length.
  *      a = a_orig.dup
  *      a[0, 2] = 'foo' # => "foo"
@@ -2324,6 +2343,7 @@ ary_aset_by_rb_ary_splice(VALUE ary, long beg, long len, VALUE val)
  *      a = a_orig.dup
  *      a[6, 50] = 'foo' # => "foo"
  *      a # => [:foo, "bar", 2, nil, nil, nil, "foo"]
+ *
  *      # With argument range.
  *      a = a_orig.dup
  *      a[0..1] = 'foo' # => "foo"
@@ -4890,15 +4910,15 @@ rb_ary_fill(int argc, VALUE *argv, VALUE ary)
 
 /*
  *  call-seq:
- *    array + other_array -> new_array
+ *    self + other_array -> new_array
  *
- *  Returns a new +Array+ containing all elements of +array+
+ *  Returns a new array containing all elements of +self+
  *  followed by all elements of +other_array+:
  *
  *    a = [0, 1] + [2, 3]
  *    a # => [0, 1, 2, 3]
  *
- *  Related: #concat.
+ *  Related: Array#concat, Array#*.
  */
 
 VALUE
@@ -4969,16 +4989,16 @@ rb_ary_concat(VALUE x, VALUE y)
 
 /*
  *  call-seq:
- *    array * n -> new_array
- *    array * string_separator -> new_string
+ *    self * n -> new_array
+ *    self * string_separator -> new_string
  *
- *  When non-negative argument Integer +n+ is given,
- *  returns a new +Array+ built by concatenating the +n+ copies of +self+:
+ *  When non-negative integer argument +n+ is given,
+ *  returns a new array built by concatenating +n+ copies of +self+:
  *
  *    a = ['x', 'y']
  *    a * 3 # => ["x", "y", "x", "y", "x", "y"]
  *
- *  When String argument +string_separator+ is given,
+ *  When string argument +string_separator+ is given,
  *  equivalent to <tt>array.join(string_separator)</tt>:
  *
  *    [0, [0, 1], {foo: 0}] * ', ' # => "0, 0, 1, {:foo=>0}"
@@ -5126,17 +5146,21 @@ recursive_equal(VALUE ary1, VALUE ary2, int recur)
 
 /*
  *  call-seq:
- *    array == other_array -> true or false
+ *    self == other_array -> true or false
  *
- *  Returns +true+ if both <tt>array.size == other_array.size</tt>
- *  and for each index +i+ in +array+, <tt>array[i] == other_array[i]</tt>:
+ *  Returns whether both:
  *
- *    a0 = [:foo, 'bar', 2]
- *    a1 = [:foo, 'bar', 2.0]
- *    a1 == a0 # => true
- *    [] == [] # => true
+ *  - +self+ and +other_array+ are the same size.
+ *  - Their corresponding elements are the same;
+ *    that is, for each index +i+ in <tt>(0...self.size)</tt>,
+ *    <tt>self[i] == other_array[i]</tt>.
  *
- *  Otherwise, returns +false+.
+ *  Examples:
+ *
+ *    [:foo, 'bar', 2] == [:foo, 'bar', 2]   # => true
+ *    [:foo, 'bar', 2] == [:foo, 'bar', 2.0] # => true
+ *    [:foo, 'bar', 2] == [:foo, 'bar']      # => false # Different sizes.
+ *    [:foo, 'bar', 2] == [:foo, 'bar', 3]   # => false # Different elements.
  *
  *  This method is different from method Array#eql?,
  *  which compares elements using <tt>Object#eql?</tt>.
@@ -5296,32 +5320,38 @@ recursive_cmp(VALUE ary1, VALUE ary2, int recur)
 
 /*
  *  call-seq:
- *    array <=> other_array -> -1, 0, or 1
+ *    self <=> other_array -> -1, 0, or 1
  *
- *  Returns -1, 0, or 1 as +self+ is less than, equal to, or greater than +other_array+.
- *  For each index +i+ in +self+, evaluates <tt>result = self[i] <=> other_array[i]</tt>.
+ *  Returns -1, 0, or 1 as +self+ is determined
+ *  to be less than, equal to, or greater than +other_array+.
  *
- *  Returns -1 if any result is -1:
+ *  Iterates over each index +i+ in <tt>(0...self.size)</tt>:
  *
- *    [0, 1, 2] <=> [0, 1, 3] # => -1
+ *  - Computes <tt>result[i]</tt> as <tt>self[i] <=> other_array[i]</tt>.
+ *  - Immediately returns 1 if <tt>result[i]</tt> is 1:
  *
- *  Returns 1 if any result is 1:
+ *      [0, 1, 2] <=> [0, 0, 2] # => 1
  *
- *    [0, 1, 2] <=> [0, 1, 1] # => 1
+ *  - Immediately returns -1 if <tt>result[i]</tt> is -1:
  *
- *  When all results are zero:
+ *      [0, 1, 2] <=> [0, 2, 2] # => -1
  *
- *  - Returns -1 if +array+ is smaller than +other_array+:
+ *  - Continues if <tt>result[i]</tt> is 0.
  *
- *      [0, 1, 2] <=> [0, 1, 2, 3] # => -1
+ *  When every +result+ is 0,
+ *  returns <tt>self.size <=> other_array.size</tt>
+ *  (see Integer#<=>):
  *
- *  - Returns 1 if +array+ is larger than +other_array+:
+ *    [0, 1, 2] <=> [0, 1]        # => 1
+ *    [0, 1, 2] <=> [0, 1, 2]     # => 0
+ *    [0, 1, 2] <=> [0, 1, 2, 3]  # => -1
  *
- *      [0, 1, 2] <=> [0, 1] # => 1
+ *  Note that when +other_array+ is larger than +self+,
+ *  its trailing elements do not affect the result:
  *
- *  - Returns 0 if +array+ and +other_array+ are the same size:
- *
- *      [0, 1, 2] <=> [0, 1, 2] # => 0
+ *    [0, 1, 2] <=> [0, 1, 2, -3] # => -1
+ *    [0, 1, 2] <=> [0, 1, 2, 0]  # => -1
+ *    [0, 1, 2] <=> [0, 1, 2, 3]  # => -1
  *
  */
 
@@ -5392,16 +5422,18 @@ ary_make_hash_by(VALUE ary)
 
 /*
  *  call-seq:
- *    array - other_array -> new_array
+ *    self - other_array -> new_array
  *
- *  Returns a new +Array+ containing only those elements from +array+
- *  that are not found in +Array+ +other_array+;
- *  items are compared using <tt>eql?</tt>;
- *  the order from +array+ is preserved:
+ *  Returns a new array containing only those elements of +self+
+ *  that are not found in +other_array+;
+ *  the order from +self+ is preserved:
  *
- *    [0, 1, 1, 2, 1, 1, 3, 1, 1] - [1] # => [0, 2, 3]
- *    [0, 1, 2, 3] - [3, 0] # => [1, 2]
- *    [0, 1, 2] - [4] # => [0, 1, 2]
+ *    [0, 1, 1, 2, 1, 1, 3, 1, 1] - [1]             # => [0, 2, 3]
+ *    [0, 1, 1, 2, 1, 1, 3, 1, 1] - [3, 2, 0, :foo] # => [1, 1, 1, 1, 1, 1]
+ *    [0, 1, 2] - [:foo]                            # => [0, 1, 2]
+ *
+ *  Element are compared using method <tt>#eql?</tt>
+ *  (as defined in each element of +self+).
  *
  *  Related: Array#difference.
  */
@@ -5491,20 +5523,30 @@ rb_ary_difference_multi(int argc, VALUE *argv, VALUE ary)
 
 /*
  *  call-seq:
- *    array & other_array -> new_array
+ *    self & other_array -> new_array
  *
- *  Returns a new +Array+ containing each element found in both +array+ and +Array+ +other_array+;
- *  duplicates are omitted; items are compared using <tt>eql?</tt>
- *  (items must also implement +hash+ correctly):
+ *  Returns a new array containing the _intersection_ of +self+ and +other_array+;
+ *  that is, containing those elements found in both +self+ and +other_array+:
  *
  *    [0, 1, 2, 3] & [1, 2] # => [1, 2]
- *    [0, 1, 0, 1] & [0, 1] # => [0, 1]
  *
- *  Preserves order from +array+:
+ *  Omits duplicates:
+ *
+ *    [0, 1, 1, 0] & [0, 1] # => [0, 1]
+ *
+ *  Preserves order from +self+:
  *
  *    [0, 1, 2] & [3, 2, 1, 0] # => [0, 1, 2]
  *
- *  Related: Array#intersection.
+ *  Identifies common elements using method <tt>#eql?</tt>
+ *  (as defined in each element of +self+).
+ *
+ *  Related:
+ *
+ *  - Array#intersection: intersection of +self+ and multiple other arrays.
+ *  - Array#|: union of +self+ and one other array.
+ *  - Array#union: union of +self+ and multiple other arrays.
+ *
  */
 
 
@@ -6458,7 +6500,7 @@ rb_ary_flatten_bang(int argc, VALUE *argv, VALUE ary)
     if (result == ary) {
         return Qnil;
     }
-    if (!(mod = ARY_EMBED_P(result))) rb_obj_freeze(result);
+    if (!(mod = ARY_EMBED_P(result))) rb_ary_freeze(result);
     rb_ary_replace(ary, result);
     if (mod) ARY_SET_EMBED_LEN(result, 0);
 
@@ -8754,6 +8796,7 @@ Init_Array(void)
     rb_define_method(rb_cArray, "one?", rb_ary_one_p, -1);
     rb_define_method(rb_cArray, "dig", rb_ary_dig, -1);
     rb_define_method(rb_cArray, "sum", rb_ary_sum, -1);
+    rb_define_method(rb_cArray, "freeze", rb_ary_freeze, 0);
 
     rb_define_method(rb_cArray, "deconstruct", rb_ary_deconstruct, 0);
 }

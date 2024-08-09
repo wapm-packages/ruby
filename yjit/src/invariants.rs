@@ -345,7 +345,7 @@ pub extern "C" fn rb_yjit_constant_state_changed(id: ID) {
 /// Callback for marking GC objects inside [Invariants].
 /// See `struct yjijt_root_struct` in C.
 #[no_mangle]
-pub extern "C" fn rb_yjit_root_mark(_: *mut c_void) {
+pub extern "C" fn rb_yjit_root_mark() {
     // Call rb_gc_mark on exit location's raw_samples to
     // wrap frames in a GC allocated object. This needs to be called
     // at the same time as root mark.
@@ -374,7 +374,7 @@ pub extern "C" fn rb_yjit_root_mark(_: *mut c_void) {
 }
 
 #[no_mangle]
-pub extern "C" fn rb_yjit_root_update_references(_: *mut c_void) {
+pub extern "C" fn rb_yjit_root_update_references() {
     if unsafe { INVARIANTS.is_none() } {
         return;
     }
@@ -683,7 +683,7 @@ pub extern "C" fn rb_yjit_tracing_invalidate_all() {
             cb.set_write_ptr(patch.inline_patch_pos);
             cb.set_dropped_bytes(false);
             cb.without_page_end_reserve(|cb| {
-                let mut asm = crate::backend::ir::Assembler::new();
+                let mut asm = crate::backend::ir::Assembler::new_without_iseq();
                 asm.jmp(patch.outlined_target_pos.as_side_exit());
                 if asm.compile(cb, None).is_none() {
                     panic!("Failed to apply patch at {:?}", patch.inline_patch_pos);

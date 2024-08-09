@@ -30,12 +30,42 @@ module Gem
     end
   end
 
+  # Can be removed once RubyGems 3.5.14 support is dropped
+  unless Gem.respond_to?(:open_file_with_flock)
+    def self.open_file_with_flock(path, &block)
+      flags = File.exist?(path) ? "r+" : "a+"
+
+      File.open(path, flags) do |io|
+        begin
+          io.flock(File::LOCK_EX)
+        rescue Errno::ENOSYS, Errno::ENOTSUP
+        end
+        yield io
+      rescue Errno::ENOLCK # NFS
+        if Thread.main != Thread.current
+          raise
+        else
+          File.open(path, flags, &block)
+        end
+      end
+    end
+  end
+
   require "rubygems/specification"
 
-  # Can be removed once RubyGems 3.5.15 support is dropped
+  # Can be removed once RubyGems 3.5.14 support is dropped
   VALIDATES_FOR_RESOLUTION = Specification.new.respond_to?(:validate_for_resolution).freeze
 
+  # Can be removed once RubyGems 3.3.15 support is dropped
+  FLATTENS_REQUIRED_PATHS = Specification.new.respond_to?(:flatten_require_paths).freeze
+
   class Specification
+    # Can be removed once RubyGems 3.5.15 support is dropped
+    correct_array_attributes = @@default_value.select {|_k,v| v.is_a?(Array) }.keys
+    unless @@array_attributes == correct_array_attributes
+      @@array_attributes = correct_array_attributes # rubocop:disable Style/ClassVars
+    end
+
     require_relative "match_metadata"
     require_relative "match_platform"
 
@@ -140,6 +170,27 @@ module Gem
       end
     end
 
+    unless FLATTENS_REQUIRED_PATHS
+      def flatten_require_paths
+        return unless raw_require_paths.first.is_a?(Array)
+
+        warn "#{name} #{version} includes a gemspec with `require_paths` set to an array of arrays. Newer versions of this gem might've already fixed this"
+        raw_require_paths.flatten!
+      end
+
+      class << self
+        module RequirePathFlattener
+          def from_yaml(input)
+            spec = super(input)
+            spec.flatten_require_paths
+            spec
+          end
+        end
+
+        prepend RequirePathFlattener
+      end
+    end
+
     private
 
     def dependencies_to_gemfile(dependencies, group = nil)
@@ -186,24 +237,18 @@ module Gem
 
     include ::Bundler::ForcePlatform
 
+    attr_reader :force_ruby_platform
+
     attr_accessor :source, :groups
 
     alias_method :eql?, :==
 
-    def force_ruby_platform
-      return @force_ruby_platform if defined?(@force_ruby_platform) && !@force_ruby_platform.nil?
-
-      @force_ruby_platform = default_force_ruby_platform
-    end
-
-    def encode_with(coder)
-      to_yaml_properties.each do |ivar|
-        coder[ivar.to_s.sub(/^@/, "")] = instance_variable_get(ivar)
+    unless method_defined?(:encode_with, false)
+      def encode_with(coder)
+        [:@name, :@requirement, :@type, :@prerelease, :@version_requirements].each do |ivar|
+          coder[ivar.to_s.sub(/^@/, "")] = instance_variable_get(ivar)
+        end
       end
-    end
-
-    def to_yaml_properties
-      instance_variables.reject {|p| ["@source", "@groups"].include?(p.to_s) }
     end
 
     def to_lock
@@ -258,7 +303,7 @@ module Gem
 
         # cpu
         ([nil,"universal"].include?(@cpu) || [nil, "universal"].include?(other.cpu) || @cpu == other.cpu ||
-        (@cpu == "arm" && other.cpu.start_with?("arm"))) &&
+        (@cpu == "arm" && other.cpu.start_with?("armv"))) &&
 
           # os
           @os == other.os &&

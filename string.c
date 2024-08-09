@@ -880,7 +880,7 @@ str_capacity(VALUE str, const int termlen)
     if (STR_EMBED_P(str)) {
         return str_embed_capa(str) - termlen;
     }
-    else if (FL_TEST(str, STR_SHARED|STR_NOFREE)) {
+    else if (FL_ANY_RAW(str, STR_SHARED|STR_NOFREE)) {
         return RSTRING(str)->len;
     }
     else {
@@ -2500,32 +2500,43 @@ rb_check_lockedtmp(VALUE str)
     }
 }
 
+// If none of these flags are set, we know we have an modifiable string.
+// If any is set, we need to do more detailed checks.
+#define STR_UNMODIFIABLE_MASK (FL_FREEZE | STR_TMPLOCK | STR_CHILLED)
 static inline void
 str_modifiable(VALUE str)
 {
-    if (CHILLED_STRING_P(str)) {
-        CHILLED_STRING_MUTATED(str);
+    if (RB_UNLIKELY(FL_ANY_RAW(str, STR_UNMODIFIABLE_MASK))) {
+        if (CHILLED_STRING_P(str)) {
+            CHILLED_STRING_MUTATED(str);
+        }
+        rb_check_lockedtmp(str);
+        rb_check_frozen(str);
     }
-    rb_check_lockedtmp(str);
-    rb_check_frozen(str);
 }
 
 static inline int
 str_dependent_p(VALUE str)
 {
     if (STR_EMBED_P(str) || !FL_TEST(str, STR_SHARED|STR_NOFREE)) {
-        return 0;
+        return FALSE;
     }
     else {
-        return 1;
+        return TRUE;
     }
 }
 
+// If none of these flags are set, we know we have an independent string.
+// If any is set, we need to do more detailed checks.
+#define STR_DEPENDANT_MASK (STR_UNMODIFIABLE_MASK | STR_SHARED | STR_NOFREE)
 static inline int
 str_independent(VALUE str)
 {
-    str_modifiable(str);
-    return !str_dependent_p(str);
+    if (RB_UNLIKELY(FL_ANY_RAW(str, STR_DEPENDANT_MASK))) {
+        str_modifiable(str);
+        return !str_dependent_p(str);
+    }
+    return TRUE;
 }
 
 static void
@@ -3375,8 +3386,7 @@ rb_str_buf_cat_byte(VALUE str, unsigned char byte)
     }
     else {
         // If there's not enough string_capacity, make a call into the general string concatenation function.
-        char buf[1] = {byte};
-        str_buf_cat(str, buf, 1);
+        str_buf_cat(str, (char *)&byte, 1);
     }
 
     // If the code range is already known, we can derive the resulting code range cheaply by looking at the byte we
@@ -12296,6 +12306,23 @@ rb_enc_interned_str_cstr(const char *ptr, rb_encoding *enc)
 {
     return rb_enc_interned_str(ptr, strlen(ptr), enc);
 }
+
+#if USE_YJIT
+void
+rb_yjit_str_concat_codepoint(VALUE str, VALUE codepoint)
+{
+    if (RB_LIKELY(ENCODING_GET_INLINED(str) == rb_ascii8bit_encindex())) {
+        ssize_t code = RB_NUM2SSIZE(codepoint);
+
+        if (RB_LIKELY(code >= 0 && code < 0xff)) {
+            rb_str_buf_cat_byte(str, (char) code);
+            return;
+        }
+    }
+
+    rb_str_concat(str, codepoint);
+}
+#endif
 
 void
 Init_String(void)

@@ -105,7 +105,6 @@ extern int ruby_assert_critical_section_entered;
 #include "vm_opts.h"
 
 #include "ruby/thread_native.h"
-
 /*
  * implementation selector of get_insn_info algorithm
  *   0: linear search
@@ -609,10 +608,9 @@ typedef struct rb_at_exit_list {
     struct rb_at_exit_list *next;
 } rb_at_exit_list;
 
-struct rb_objspace;
-struct rb_objspace *rb_objspace_alloc(void);
-void rb_objspace_free(struct rb_objspace *);
-void rb_objspace_call_finalizer(struct rb_objspace *);
+void *rb_objspace_alloc(void);
+void rb_objspace_free(void *objspace);
+void rb_objspace_call_finalizer(void);
 
 typedef struct rb_hook_list_struct {
     struct rb_event_hook_struct *hooks;
@@ -735,9 +733,6 @@ typedef struct rb_vm_struct {
     struct {
         VALUE cmd[RUBY_NSIG];
     } trap_list;
-
-    /* relation table of ensure - rollback for callcc */
-    struct st_table *ensure_rollback_table;
 
     /* postponed_job (async-signal-safe, and thread-safe) */
     struct rb_postponed_job_queue *postponed_job_queue;
@@ -976,17 +971,6 @@ struct rb_unblock_callback {
 
 struct rb_mutex_struct;
 
-typedef struct rb_ensure_entry {
-    VALUE marker;
-    VALUE (*e_proc)(VALUE);
-    VALUE data2;
-} rb_ensure_entry_t;
-
-typedef struct rb_ensure_list {
-    struct rb_ensure_list *next;
-    struct rb_ensure_entry entry;
-} rb_ensure_list_t;
-
 typedef struct rb_fiber_struct rb_fiber_t;
 
 struct rb_waiting_list {
@@ -1024,9 +1008,6 @@ struct rb_execution_context_struct {
     /* eval env */
     const VALUE *root_lep;
     VALUE root_svar;
-
-    /* ensure & callcc */
-    rb_ensure_list_t *ensure_list;
 
     /* trace information */
     struct rb_trace_arg_struct *trace_arg;
@@ -1203,7 +1184,7 @@ rb_iseq_t *rb_iseq_new         (const VALUE ast_value, VALUE name, VALUE path, V
 rb_iseq_t *rb_iseq_new_top     (const VALUE ast_value, VALUE name, VALUE path, VALUE realpath,                   const rb_iseq_t *parent);
 rb_iseq_t *rb_iseq_new_main    (const VALUE ast_value,             VALUE path, VALUE realpath,                   const rb_iseq_t *parent, int opt);
 rb_iseq_t *rb_iseq_new_eval    (const VALUE ast_value, VALUE name, VALUE path, VALUE realpath, int first_lineno, const rb_iseq_t *parent, int isolated_depth);
-rb_iseq_t *rb_iseq_new_with_opt(const VALUE ast_value, VALUE name, VALUE path, VALUE realpath, int first_lineno, const rb_iseq_t *parent, int isolated_depth,
+rb_iseq_t *rb_iseq_new_with_opt(      VALUE ast_value, VALUE name, VALUE path, VALUE realpath, int first_lineno, const rb_iseq_t *parent, int isolated_depth,
                                 enum rb_iseq_type, const rb_compile_option_t*,
                                 VALUE script_lines);
 
@@ -1285,6 +1266,14 @@ enum vm_check_match_type {
 
 #define VM_CHECKMATCH_TYPE_MASK   0x03
 #define VM_CHECKMATCH_ARRAY       0x04
+
+enum vm_opt_newarray_send_type {
+    VM_OPT_NEWARRAY_SEND_MAX = 1,
+    VM_OPT_NEWARRAY_SEND_MIN = 2,
+    VM_OPT_NEWARRAY_SEND_HASH = 3,
+    VM_OPT_NEWARRAY_SEND_PACK = 4,
+    VM_OPT_NEWARRAY_SEND_PACK_BUFFER = 5,
+};
 
 enum vm_special_object_type {
     VM_SPECIAL_OBJECT_VMCORE = 1,

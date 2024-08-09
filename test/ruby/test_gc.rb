@@ -52,6 +52,81 @@ class TestGc < Test::Unit::TestCase
     GC.enable
   end
 
+  def test_gc_config_full_mark_by_default
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    config = GC.config
+    assert_not_empty(config)
+    assert_true(config[:rgengc_allow_full_mark])
+  end
+
+  def test_gc_config_invalid_args
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    assert_raise(ArgumentError) { GC.config(0) }
+  end
+
+  def test_gc_config_setting_returns_updated_config_hash
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    old_value = GC.config[:rgengc_allow_full_mark]
+    assert_true(old_value)
+
+    new_value = GC.config(rgengc_allow_full_mark: false)[:rgengc_allow_full_mark]
+    assert_false(new_value)
+  ensure
+    GC.config(rgengc_allow_full_mark: true)
+    GC.start
+  end
+
+  def test_gc_config_setting_returns_nil_for_missing_keys
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    missing_value = GC.config(no_such_key: true)[:no_such_key]
+    assert_nil(missing_value)
+  ensure
+    GC.config(full_mark: true)
+    GC.start
+  end
+
+  def test_gc_config_disable_major
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    GC.enable
+    GC.start
+
+    GC.config(rgengc_allow_full_mark: false)
+    major_count = GC.stat[:major_gc_count]
+    minor_count = GC.stat[:minor_gc_count]
+
+    arr = []
+    (GC.stat_heap[0][:heap_eden_slots] * 2).times do
+      arr << Object.new
+      Object.new
+    end
+
+    assert_equal(major_count, GC.stat[:major_gc_count])
+    assert_operator(minor_count, :<=, GC.stat[:minor_gc_count])
+    assert_nil(GC.start)
+  ensure
+    GC.config(rgengc_allow_full_mark: true)
+    GC.start
+  end
+
+  def test_gc_config_disable_major_gc_start_always_works
+    omit "unsupoported platform/GC" unless defined?(GC.config)
+
+    GC.config(full_mark: false)
+
+    major_count = GC.stat[:major_gc_count]
+    GC.start
+
+    assert_operator(major_count, :<, GC.stat[:major_gc_count])
+  ensure
+    GC.config(full_mark: true)
+    GC.start
+  end
+
   def test_start_full_mark
     return unless use_rgengc?
     omit 'stress' if GC.stress
@@ -159,7 +234,7 @@ class TestGc < Test::Unit::TestCase
         GC.enable if reenable_gc
       end
 
-      assert_equal GC::INTERNAL_CONSTANTS[:RVALUE_SIZE] * (2**i), stat_heap[:slot_size]
+      assert_equal (GC::INTERNAL_CONSTANTS[:BASE_SLOT_SIZE] + GC::INTERNAL_CONSTANTS[:RVALUE_OVERHEAD]) * (2**i), stat_heap[:slot_size]
       assert_operator stat_heap[:heap_allocatable_pages], :<=, stat[:heap_allocatable_pages]
       assert_operator stat_heap[:heap_eden_pages], :<=, stat[:heap_eden_pages]
       assert_operator stat_heap[:heap_eden_slots], :>=, 0
@@ -186,13 +261,12 @@ class TestGc < Test::Unit::TestCase
     omit "flaky with RJIT, which allocates objects itself" if defined?(RubyVM::RJIT) && RubyVM::RJIT.enabled?
     stat_heap_all = {}
     stat_heap = {}
-
-    2.times do
-      GC.stat_heap(0, stat_heap)
-      GC.stat_heap(nil, stat_heap_all)
-    end
+    # Initialize to prevent GC in future calls
+    GC.stat_heap(0, stat_heap)
+    GC.stat_heap(nil, stat_heap_all)
 
     GC::INTERNAL_CONSTANTS[:SIZE_POOL_COUNT].times do |i|
+      GC.stat_heap(nil, stat_heap_all)
       GC.stat_heap(i, stat_heap)
 
       # Remove keys that can vary between invocations
@@ -681,7 +755,7 @@ class TestGc < Test::Unit::TestCase
 
   def test_gc_internals
     assert_not_nil GC::INTERNAL_CONSTANTS[:HEAP_PAGE_OBJ_LIMIT]
-    assert_not_nil GC::INTERNAL_CONSTANTS[:RVALUE_SIZE]
+    assert_not_nil GC::INTERNAL_CONSTANTS[:BASE_SLOT_SIZE]
   end
 
   def test_sweep_in_finalizer

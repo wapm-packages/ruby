@@ -4788,6 +4788,7 @@ assert_equal 'ok', %q{
   caller
 }
 
+# test inlining of simple iseqs
 assert_equal '[:ok, :ok, :ok]', %q{
   def identity(x) = x
   def foo(x, _) = x
@@ -4798,6 +4799,49 @@ assert_equal '[:ok, :ok, :ok]', %q{
       identity(:ok),
       foo(:ok, 2),
       bar(1, 2, 3, 4, :ok),
+    ]
+  end
+
+  tests
+}
+
+# test inlining of simple iseqs with kwargs
+assert_equal '[:ok, :ok, :ok, :ok, :ok]', %q{
+  def optional_unused(x, opt: :not_ok) = x
+  def optional_used(x, opt: :ok) = opt
+  def required_unused(x, req:) = x
+  def required_used(x, req:) = req
+  def unknown(x) = x
+
+  def tests
+    [
+      optional_unused(:ok),
+      optional_used(:not_ok),
+      required_unused(:ok, req: :not_ok),
+      required_used(:not_ok, req: :ok),
+      begin unknown(:not_ok, unknown_kwarg: :not_ok) rescue ArgumentError; :ok end,
+    ]
+  end
+
+  tests
+}
+
+# test simple iseqs not eligible for inlining
+assert_equal '[:ok, :ok, :ok, :ok, :ok]', %q{
+  def identity(x) = x
+  def arg_splat(x, *args) = x
+  def kwarg_splat(x, **kwargs) = x
+  def block_arg(x, &blk) = x
+  def block_iseq(x) = x
+  def call_forwarding(...) = identity(...)
+
+  def tests
+    [
+      arg_splat(:ok),
+      kwarg_splat(:ok),
+      block_arg(:ok, &proc { :not_ok }),
+      block_iseq(:ok) { :not_ok },
+      call_forwarding(:ok),
     ]
   end
 
@@ -5120,4 +5164,40 @@ assert_equal 'ok', <<~'RUBY'
   end
 
   ok(["ok"], ->(x) { x })
+RUBY
+
+assert_equal 'ok', <<~'RUBY'
+def baz(a, b)
+  a + b
+end
+
+def bar(...)
+  baz(...)
+end
+
+def foo(a, ...)
+  bar(a, ...)
+end
+
+def test
+  foo("o", "k")
+end
+
+test
+RUBY
+
+assert_equal '[true, true]', <<~'RUBY'
+  def pack
+    v = 1.23
+    [v, v*2, v*3].pack("E*").unpack("E*") == [v, v*2, v*3]
+  end
+
+  def with_buffer
+    v = 4.56
+    b = +"x"
+    [v, v*2, v*3].pack("E*", buffer: b)
+    b[1..].unpack("E*") == [v, v*2, v*3]
+  end
+
+  [pack, with_buffer]
 RUBY

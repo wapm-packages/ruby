@@ -269,11 +269,11 @@ RSpec.describe "bundle gem" do
     end
   end
 
-  shared_examples_for "--linter=none flag" do
+  shared_examples_for "--no-linter flag" do
     define_negated_matcher :exclude, :include
 
     before do
-      bundle "gem #{gem_name} --linter=none"
+      bundle "gem #{gem_name} --no-linter"
     end
 
     it "generates a gem skeleton without rubocop" do
@@ -739,6 +739,30 @@ RSpec.describe "bundle gem" do
       end
     end
 
+    context "init_gems_rb setting to true" do
+      before do
+        bundle "config set init_gems_rb true"
+        bundle "gem #{gem_name}"
+      end
+
+      it "generates gems.rb instead of Gemfile" do
+        expect(bundled_app("#{gem_name}/gems.rb")).to exist
+        expect(bundled_app("#{gem_name}/Gemfile")).to_not exist
+      end
+    end
+
+    context "init_gems_rb setting to false" do
+      before do
+        bundle "config set init_gems_rb false"
+        bundle "gem #{gem_name}"
+      end
+
+      it "generates Gemfile instead of gems.rb" do
+        expect(bundled_app("#{gem_name}/gems.rb")).to_not exist
+        expect(bundled_app("#{gem_name}/Gemfile")).to exist
+      end
+    end
+
     context "gem.test setting set to rspec" do
       before do
         bundle "config set gem.test rspec"
@@ -851,6 +875,17 @@ RSpec.describe "bundle gem" do
 
       it "creates a default test which fails" do
         expect(bundled_app("#{gem_name}/test/#{require_path}_test.rb").read).to include("assert_equal(\"expected\", \"actual\")")
+      end
+    end
+
+    context "--test parameter set to an invalid value" do
+      before do
+        bundle "gem #{gem_name} --test=foo", raise_on_error: false
+      end
+
+      it "fails loudly" do
+        expect(last_command).to be_failure
+        expect(err).to match(/Expected '--test' to be one of .*; got foo/)
       end
     end
 
@@ -998,6 +1033,17 @@ RSpec.describe "bundle gem" do
       end
     end
 
+    context "--ci set to an invalid value" do
+      before do
+        bundle "gem #{gem_name} --ci=foo", raise_on_error: false
+      end
+
+      it "fails loudly" do
+        expect(last_command).to be_failure
+        expect(err).to match(/Expected '--ci' to be one of .*; got foo/)
+      end
+    end
+
     context "gem.ci setting set to none" do
       it "doesn't generate any CI config" do
         expect(bundled_app("#{gem_name}/.github/workflows/main.yml")).to_not exist
@@ -1121,6 +1167,17 @@ RSpec.describe "bundle gem" do
 
         expect(bundled_app("#{gem_name}/.standard.yml")).to exist
         expect(bundled_app("#{gem_name}/.rubocop.yml")).to_not exist
+      end
+    end
+
+    context "--linter set to an invalid value" do
+      before do
+        bundle "gem #{gem_name} --linter=foo", raise_on_error: false
+      end
+
+      it "fails loudly" do
+        expect(last_command).to be_failure
+        expect(err).to match(/Expected '--linter' to be one of .*; got foo/)
       end
     end
 
@@ -1288,7 +1345,7 @@ RSpec.describe "bundle gem" do
       end
       it_behaves_like "--linter=rubocop flag"
       it_behaves_like "--linter=standard flag"
-      it_behaves_like "--linter=none flag"
+      it_behaves_like "--no-linter flag"
       it_behaves_like "--rubocop flag"
       it_behaves_like "--no-rubocop flag"
     end
@@ -1299,7 +1356,7 @@ RSpec.describe "bundle gem" do
       end
       it_behaves_like "--linter=rubocop flag"
       it_behaves_like "--linter=standard flag"
-      it_behaves_like "--linter=none flag"
+      it_behaves_like "--no-linter flag"
       it_behaves_like "--rubocop flag"
       it_behaves_like "--no-rubocop flag"
     end
@@ -1310,7 +1367,7 @@ RSpec.describe "bundle gem" do
       end
       it_behaves_like "--linter=rubocop flag"
       it_behaves_like "--linter=standard flag"
-      it_behaves_like "--linter=none flag"
+      it_behaves_like "--no-linter flag"
     end
 
     context "with linter option in bundle config settings set to standard" do
@@ -1319,7 +1376,7 @@ RSpec.describe "bundle gem" do
       end
       it_behaves_like "--linter=rubocop flag"
       it_behaves_like "--linter=standard flag"
-      it_behaves_like "--linter=none flag"
+      it_behaves_like "--no-linter flag"
     end
 
     context "with linter option in bundle config settings set to false" do
@@ -1328,7 +1385,7 @@ RSpec.describe "bundle gem" do
       end
       it_behaves_like "--linter=rubocop flag"
       it_behaves_like "--linter=standard flag"
-      it_behaves_like "--linter=none flag"
+      it_behaves_like "--no-linter flag"
     end
 
     context "with changelog option in bundle config settings set to true" do

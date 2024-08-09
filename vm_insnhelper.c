@@ -12,6 +12,10 @@
 
 #include <math.h>
 
+#ifdef HAVE_STDATOMIC_H
+  #include <stdatomic.h>
+#endif
+
 #include "constant.h"
 #include "debug_counter.h"
 #include "internal.h"
@@ -415,6 +419,14 @@ vm_push_frame(rb_execution_context_t *ec,
         .jit_return = NULL
     };
 
+    /* Ensure the initialization of `*cfp` above never gets reordered with the update of `ec->cfp` below.
+    This is a no-op in all cases we've looked at (https://godbolt.org/z/3oxd1446K), but should guarantee it for all
+    future/untested compilers/platforms. */
+
+    #if defined HAVE_DECL_ATOMIC_SIGNAL_FENCE && HAVE_DECL_ATOMIC_SIGNAL_FENCE
+    atomic_signal_fence(memory_order_seq_cst);
+    #endif
+
     ec->cfp = cfp;
 
     if (VMDEBUG == 2) {
@@ -428,7 +440,6 @@ rb_vm_pop_frame_no_int(rb_execution_context_t *ec)
 {
     rb_control_frame_t *cfp = ec->cfp;
 
-    if (VM_CHECK_MODE >= 4) rb_gc_verify_internal_consistency();
     if (VMDEBUG == 2)       SDR();
 
     ec->cfp = RUBY_VM_PREVIOUS_CONTROL_FRAME(cfp);
@@ -440,7 +451,6 @@ vm_pop_frame(rb_execution_context_t *ec, rb_control_frame_t *cfp, const VALUE *e
 {
     VALUE flags = ep[VM_ENV_DATA_INDEX_FLAGS];
 
-    if (VM_CHECK_MODE >= 4) rb_gc_verify_internal_consistency();
     if (VMDEBUG == 2)       SDR();
 
     RUBY_VM_CHECK_INTS(ec);
@@ -1242,7 +1252,13 @@ vm_getivar(VALUE obj, ID id, const rb_iseq_t *iseq, IVC ic, const struct rb_call
                 // and modules. So we can skip locking.
                 // Second, other ractors need to check the shareability of the
                 // values returned from the class ivars.
-                goto general_path;
+
+                if (default_value == Qundef) { // defined?
+                    return rb_ivar_defined(obj, id) ? Qtrue : Qundef;
+                }
+                else {
+                    goto general_path;
+                }
             }
 
             ivar_list = RCLASS_IVPTR(obj);
@@ -3735,7 +3751,7 @@ vm_method_cfunc_entry(const rb_callable_method_entry_t *me)
     return UNALIGNED_MEMBER_PTR(me->def, body.cfunc);
 }
 
-static inline VALUE
+static VALUE
 vm_call_cfunc_with_frame_(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp, struct rb_calling_info *calling,
                           int argc, VALUE *argv, VALUE *stack_bottom)
 {
@@ -3907,7 +3923,7 @@ vm_call_cfunc(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp, struct rb
     const struct rb_callinfo *ci = calling->cd->ci;
     RB_DEBUG_COUNTER_INC(ccf_cfunc);
 
-    if (IS_ARGS_SPLAT(ci)) {
+    if (IS_ARGS_SPLAT(ci) && !(vm_ci_flag(ci) & VM_CALL_FORWARDING)) {
         if (!IS_ARGS_KW_SPLAT(ci) && vm_ci_argc(ci) == 1) {
             // f(*a)
             CC_SET_FASTPATH(calling->cc, vm_call_cfunc_only_splat, TRUE);
@@ -3986,13 +4002,12 @@ vm_call_bmethod_body(rb_execution_context_t *ec, struct rb_calling_info *calling
 
     /* control block frame */
     GetProcPtr(procv, proc);
-    val = rb_vm_invoke_bmethod(ec, proc, calling->recv, CALLING_ARGC(calling), argv, calling->kw_splat, calling->block_handler, vm_cc_cme(cc));
+    val = vm_invoke_bmethod(ec, proc, calling->recv, CALLING_ARGC(calling), argv, calling->kw_splat, calling->block_handler, vm_cc_cme(cc));
 
     return val;
 }
 
 static int vm_callee_setup_block_arg(rb_execution_context_t *ec, struct rb_calling_info *calling, const struct rb_callinfo *ci, const rb_iseq_t *iseq, VALUE *argv, const enum arg_setup_type arg_setup_type);
-static VALUE invoke_bmethod(rb_execution_context_t *ec, const rb_iseq_t *iseq, VALUE self, const struct rb_captured_block *captured, const rb_callable_method_entry_t *me, VALUE type, int opt_pc);
 
 static VALUE
 vm_call_iseq_bmethod(rb_execution_context_t *ec, rb_control_frame_t *cfp, struct rb_calling_info *calling)
@@ -4363,10 +4378,10 @@ vm_call_opt_send(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp, struct
     const struct rb_callinfo *ci = calling->cd->ci;
     int flags = vm_ci_flag(ci);
 
-    if (UNLIKELY(!(flags & VM_CALL_ARGS_SIMPLE) &&
+    if (UNLIKELY((flags & VM_CALL_FORWARDING) || (!(flags & VM_CALL_ARGS_SIMPLE) &&
         ((calling->argc == 1 && (flags & (VM_CALL_ARGS_SPLAT | VM_CALL_KW_SPLAT))) ||
          (calling->argc == 2 && (flags & VM_CALL_ARGS_SPLAT) && (flags & VM_CALL_KW_SPLAT)) ||
-         ((flags & VM_CALL_KWARG) && (vm_ci_kwarg(ci)->keyword_len == calling->argc))))) {
+         ((flags & VM_CALL_KWARG) && (vm_ci_kwarg(ci)->keyword_len == calling->argc)))))) {
         CC_SET_FASTPATH(calling->cc, vm_call_opt_send_complex, TRUE);
         return vm_call_opt_send_complex(ec, reg_cfp, calling);
     }
@@ -6187,17 +6202,43 @@ rb_vm_opt_newarray_hash(rb_execution_context_t *ec, rb_num_t num, const VALUE *p
 VALUE rb_setup_fake_ary(struct RArray *fake_ary, const VALUE *list, long len, bool freeze);
 VALUE rb_ec_pack_ary(rb_execution_context_t *ec, VALUE ary, VALUE fmt, VALUE buffer);
 
-VALUE
-rb_vm_opt_newarray_pack(rb_execution_context_t *ec, rb_num_t num, const VALUE *ptr, VALUE fmt)
+static VALUE
+vm_opt_newarray_pack_buffer(rb_execution_context_t *ec, rb_num_t num, const VALUE *ptr, VALUE fmt, VALUE buffer)
 {
     if (BASIC_OP_UNREDEFINED_P(BOP_PACK, ARRAY_REDEFINED_OP_FLAG)) {
         struct RArray fake_ary;
         VALUE ary = rb_setup_fake_ary(&fake_ary, ptr, num, true);
-        return rb_ec_pack_ary(ec, ary, fmt, Qnil);
+        return rb_ec_pack_ary(ec, ary, fmt, (UNDEF_P(buffer) ? Qnil : buffer));
     }
     else {
-        return rb_vm_call_with_refinements(ec, rb_ary_new4(num, ptr), idPack, 1, &fmt, RB_PASS_CALLED_KEYWORDS);
+        // The opt_newarray_send insn drops the keyword args so we need to rebuild them.
+        // Setup an array with room for keyword hash.
+        VALUE args[2];
+        args[0] = fmt;
+        int kw_splat = RB_NO_KEYWORDS;
+        int argc = 1;
+
+        if (!UNDEF_P(buffer)) {
+            args[1] = rb_hash_new_with_size(1);
+            rb_hash_aset(args[1], ID2SYM(idBuffer), buffer);
+            kw_splat = RB_PASS_KEYWORDS;
+            argc++;
+        }
+
+        return rb_vm_call_with_refinements(ec, rb_ary_new4(num, ptr), idPack, argc, args, kw_splat);
     }
+}
+
+VALUE
+rb_vm_opt_newarray_pack_buffer(rb_execution_context_t *ec, rb_num_t num, const VALUE *ptr, VALUE fmt, VALUE buffer)
+{
+    return vm_opt_newarray_pack_buffer(ec, num, ptr, fmt, buffer);
+}
+
+VALUE
+rb_vm_opt_newarray_pack(rb_execution_context_t *ec, rb_num_t num, const VALUE *ptr, VALUE fmt)
+{
+    return vm_opt_newarray_pack_buffer(ec, num, ptr, fmt, Qundef);
 }
 
 #undef id_cmp
