@@ -271,6 +271,18 @@ rb_str_encode_ospath(VALUE path)
 # define NORMALIZE_UTF8PATH 1
 
 # ifdef HAVE_WORKING_FORK
+static CFMutableStringRef
+mutable_CFString_new(CFStringRef *s, const char *ptr, long len)
+{
+    const CFAllocatorRef alloc = kCFAllocatorDefault;
+    *s = CFStringCreateWithBytesNoCopy(alloc, (const UInt8 *)ptr, len,
+                                       kCFStringEncodingUTF8, FALSE,
+                                       kCFAllocatorNull);
+    return CFStringCreateMutableCopy(alloc, len, *s);
+}
+
+#   define mutable_CFString_release(m, s) (CFRelease(m), CFRelease(s))
+
 static void
 rb_CFString_class_initialize_before_fork(void)
 {
@@ -297,15 +309,17 @@ rb_CFString_class_initialize_before_fork(void)
     /* Enough small but non-empty ASCII string to fit in NSTaggedPointerString. */
     const char small_str[] = "/";
     long len = sizeof(small_str) - 1;
-
-    const CFAllocatorRef alloc = kCFAllocatorDefault;
-    CFStringRef s = CFStringCreateWithBytesNoCopy(alloc,
-                                                  (const UInt8 *)small_str,
-                                                  len, kCFStringEncodingUTF8,
-                                                  FALSE, kCFAllocatorNull);
-    CFMutableStringRef m = CFStringCreateMutableCopy(alloc, len, s);
-    CFRelease(m);
-    CFRelease(s);
+    CFStringRef s;
+    /*
+     * Touch `CFStringCreateWithBytesNoCopy` *twice* because the implementation
+     * shipped with macOS 15.0 24A5331b does not return `NSTaggedPointerString`
+     * instance for the first call (totally not sure why). CoreFoundation
+     * shipped with macOS 15.1 does not have this issue.
+     */
+    for (int i = 0; i < 2; i++) {
+        CFMutableStringRef m = mutable_CFString_new(&s, small_str, len);
+        mutable_CFString_release(m, s);
+    }
 }
 # endif /* HAVE_WORKING_FORK */
 
@@ -314,11 +328,8 @@ rb_str_append_normalized_ospath(VALUE str, const char *ptr, long len)
 {
     CFIndex buflen = 0;
     CFRange all;
-    CFStringRef s = CFStringCreateWithBytesNoCopy(kCFAllocatorDefault,
-                                                  (const UInt8 *)ptr, len,
-                                                  kCFStringEncodingUTF8, FALSE,
-                                                  kCFAllocatorNull);
-    CFMutableStringRef m = CFStringCreateMutableCopy(kCFAllocatorDefault, len, s);
+    CFStringRef s;
+    CFMutableStringRef m = mutable_CFString_new(&s, ptr, len);
     long oldlen = RSTRING_LEN(str);
 
     CFStringNormalize(m, kCFStringNormalizationFormC);
@@ -328,8 +339,7 @@ rb_str_append_normalized_ospath(VALUE str, const char *ptr, long len)
     CFStringGetBytes(m, all, kCFStringEncodingUTF8, '?', FALSE,
                      (UInt8 *)(RSTRING_PTR(str) + oldlen), buflen, &buflen);
     rb_str_set_len(str, oldlen + buflen);
-    CFRelease(m);
-    CFRelease(s);
+    mutable_CFString_release(m, s);
     return str;
 }
 
@@ -1143,14 +1153,14 @@ no_gvl_fstat(void *data)
 }
 
 static int
-fstat_without_gvl(int fd, struct stat *st)
+fstat_without_gvl(rb_io_t *fptr, struct stat *st)
 {
     no_gvl_stat_data data;
 
-    data.file.fd = fd;
+    data.file.fd = fptr->fd;
     data.st = st;
 
-    return (int)(VALUE)rb_thread_io_blocking_region(no_gvl_fstat, &data, fd);
+    return (int)rb_io_blocking_region(fptr, no_gvl_fstat, &data);
 }
 
 static void *
@@ -1222,12 +1232,12 @@ statx_without_gvl(const char *path, struct statx *stx, unsigned int mask)
 }
 
 static int
-fstatx_without_gvl(int fd, struct statx *stx, unsigned int mask)
+fstatx_without_gvl(rb_io_t *fptr, struct statx *stx, unsigned int mask)
 {
-    no_gvl_statx_data data = {stx, fd, "", AT_EMPTY_PATH, mask};
+    no_gvl_statx_data data = {stx, fptr->fd, "", AT_EMPTY_PATH, mask};
 
     /* call statx(2) with fd */
-    return (int)rb_thread_io_blocking_region(io_blocking_statx, &data, fd);
+    return (int)rb_io_blocking_region(fptr, io_blocking_statx, &data);
 }
 
 static int
@@ -1240,7 +1250,7 @@ rb_statx(VALUE file, struct statx *stx, unsigned int mask)
     if (!NIL_P(tmp)) {
         rb_io_t *fptr;
         GetOpenFile(tmp, fptr);
-        result = fstatx_without_gvl(fptr->fd, stx, mask);
+        result = fstatx_without_gvl(fptr, stx, mask);
         file = tmp;
     }
     else {
@@ -1281,7 +1291,7 @@ typedef struct statx statx_data;
 
 #elif defined(HAVE_STAT_BIRTHTIME)
 # define statx_without_gvl(path, st, mask) stat_without_gvl(path, st)
-# define fstatx_without_gvl(fd, st, mask) fstat_without_gvl(fd, st)
+# define fstatx_without_gvl(fptr, st, mask) fstat_without_gvl(fptr, st)
 # define statx_birthtime(st, fname) stat_birthtime(st)
 # define statx_has_birthtime(st) 1
 # define rb_statx(file, st, mask) rb_stat(file, st)
@@ -1301,7 +1311,7 @@ rb_stat(VALUE file, struct stat *st)
         rb_io_t *fptr;
 
         GetOpenFile(tmp, fptr);
-        result = fstat_without_gvl(fptr->fd, st);
+        result = fstat_without_gvl(fptr, st);
         file = tmp;
     }
     else {
@@ -2499,7 +2509,7 @@ rb_file_birthtime(VALUE obj)
     statx_data st;
 
     GetOpenFile(obj, fptr);
-    if (fstatx_without_gvl(fptr->fd, &st, STATX_BTIME) == -1) {
+    if (fstatx_without_gvl(fptr, &st, STATX_BTIME) == -1) {
         rb_sys_fail_path(fptr->pathv);
     }
     return statx_birthtime(&st, fptr->pathv);
@@ -4533,6 +4543,11 @@ rb_check_realpath_emulate_rescue(VALUE arg, VALUE exc)
 {
     return Qnil;
 }
+#elif !defined(NEEDS_REALPATH_BUFFER) && defined(__APPLE__) && \
+    (!defined(MAC_OS_X_VERSION_10_6) || (MAC_OS_X_VERSION_MIN_REQUIRED < MAC_OS_X_VERSION_10_6))
+/* realpath() on OSX < 10.6 doesn't implement automatic allocation */
+# include <sys/syslimits.h>
+# define NEEDS_REALPATH_BUFFER 1
 #endif /* HAVE_REALPATH */
 
 static VALUE
@@ -4542,6 +4557,11 @@ rb_check_realpath_internal(VALUE basedir, VALUE path, rb_encoding *origenc, enum
     VALUE unresolved_path;
     char *resolved_ptr = NULL;
     VALUE resolved;
+# if defined(NEEDS_REALPATH_BUFFER) && NEEDS_REALPATH_BUFFER
+    char resolved_buffer[PATH_MAX];
+# else
+    char *const resolved_buffer = NULL;
+# endif
 
     if (mode == RB_REALPATH_DIR) {
         return rb_check_realpath_emulate(basedir, path, origenc, mode);
@@ -4553,7 +4573,7 @@ rb_check_realpath_internal(VALUE basedir, VALUE path, rb_encoding *origenc, enum
     }
     if (origenc) unresolved_path = TO_OSPATH(unresolved_path);
 
-    if ((resolved_ptr = realpath(RSTRING_PTR(unresolved_path), NULL)) == NULL) {
+    if ((resolved_ptr = realpath(RSTRING_PTR(unresolved_path), resolved_buffer)) == NULL) {
         /* glibc realpath(3) does not allow /path/to/file.rb/../other_file.rb,
            returning ENOTDIR in that case.
            glibc realpath(3) can also return ENOENT for paths that exist,
@@ -4570,7 +4590,9 @@ rb_check_realpath_internal(VALUE basedir, VALUE path, rb_encoding *origenc, enum
         rb_sys_fail_path(unresolved_path);
     }
     resolved = ospath_new(resolved_ptr, strlen(resolved_ptr), rb_filesystem_encoding());
+# if !(defined(NEEDS_REALPATH_BUFFER) && NEEDS_REALPATH_BUFFER)
     free(resolved_ptr);
+# endif
 
 # if !defined(__LINUX__) && !defined(__APPLE__)
     /* As `resolved` is a String in the filesystem encoding, no
@@ -5266,7 +5288,7 @@ rb_file_truncate(VALUE obj, VALUE len)
     }
     rb_io_flush_raw(obj, 0);
     fa.fd = fptr->fd;
-    if ((int)rb_thread_io_blocking_region(nogvl_ftruncate, &fa, fa.fd) < 0) {
+    if ((int)rb_io_blocking_region(fptr, nogvl_ftruncate, &fa) < 0) {
         rb_sys_fail_path(fptr->pathv);
     }
     return INT2FIX(0);
@@ -5366,7 +5388,7 @@ rb_file_flock(VALUE obj, VALUE operation)
     if (fptr->mode & FMODE_WRITABLE) {
         rb_io_flush_raw(obj, 0);
     }
-    while ((int)rb_thread_io_blocking_region(rb_thread_flock, op, fptr->fd) < 0) {
+    while ((int)rb_io_blocking_region(fptr, rb_thread_flock, op) < 0) {
         int e = errno;
         switch (e) {
           case EAGAIN:
@@ -5443,14 +5465,14 @@ test_check(int n, int argc, VALUE *argv)
  *      | <tt>'o'</tt> | Whether the entity is owned by the caller's effective uid.                |
  *      | <tt>'O'</tt> | Like <tt>'o'</tt>, but uses the real uid (not the effective uid).         |
  *      | <tt>'p'</tt> | Whether the entity is a FIFO device (named pipe).                         |
- *      | <tt>'r'</tt> | Whether the entity is readable by the caller's effecive uid/gid.          |
+ *      | <tt>'r'</tt> | Whether the entity is readable by the caller's effective uid/gid.         |
  *      | <tt>'R'</tt> | Like <tt>'r'</tt>, but uses the real uid/gid (not the effective uid/gid). |
  *      | <tt>'S'</tt> | Whether the entity is a socket.                                           |
  *      | <tt>'u'</tt> | Whether the entity's setuid bit is set.                                   |
  *      | <tt>'w'</tt> | Whether the entity is writable by the caller's effective uid/gid.         |
  *      | <tt>'W'</tt> | Like <tt>'w'</tt>, but uses the real uid/gid (not the effective uid/gid). |
  *      | <tt>'x'</tt> | Whether the entity is executable by the caller's effective uid/gid.       |
- *      | <tt>'X'</tt> | Like <tt>'x'</tt>, but uses the real uid/gid (not the effecive uid/git).  |
+ *      | <tt>'X'</tt> | Like <tt>'x'</tt>, but uses the real uid/gid (not the effective uid/git). |
  *      | <tt>'z'</tt> | Whether the entity exists and is of length zero.                          |
  *
  *  - This test operates only on the entity at `path0`,

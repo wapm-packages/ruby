@@ -6,7 +6,6 @@
 
 **********************************************************************/
 
-#include "ruby/io.h"
 #include "ruby/io/buffer.h"
 #include "ruby/fiber/scheduler.h"
 
@@ -16,7 +15,7 @@
 #include "internal/error.h"
 #include "internal/numeric.h"
 #include "internal/string.h"
-#include "internal/thread.h"
+#include "internal/io.h"
 
 VALUE rb_cIOBuffer;
 VALUE rb_eIOBufferLockedError;
@@ -843,7 +842,8 @@ rb_io_buffer_get_bytes(VALUE self, void **base, size_t *size)
 static inline void
 io_buffer_get_bytes_for_writing(struct rb_io_buffer *buffer, void **base, size_t *size)
 {
-    if (buffer->flags & RB_IO_BUFFER_READONLY) {
+    if (buffer->flags & RB_IO_BUFFER_READONLY ||
+        (!NIL_P(buffer->source) && OBJ_FROZEN(buffer->source))) {
         rb_raise(rb_eIOBufferAccessError, "Buffer is not writable!");
     }
 
@@ -1532,6 +1532,7 @@ rb_io_buffer_slice(struct rb_io_buffer *buffer, VALUE self, size_t offset, size_
     struct rb_io_buffer *slice = NULL;
     TypedData_Get_Struct(instance, struct rb_io_buffer, &rb_io_buffer_type, slice);
 
+    slice->flags |= (buffer->flags & RB_IO_BUFFER_READONLY);
     slice->base = (char*)buffer->base + offset;
     slice->size = length;
 
@@ -1566,7 +1567,7 @@ rb_io_buffer_slice(struct rb_io_buffer *buffer, VALUE self, size_t offset, size_
  *  buffer's bounds.
  *
  *    string = 'test'
- *    buffer = IO::Buffer.for(string)
+ *    buffer = IO::Buffer.for(string).dup
  *
  *    slice = buffer.slice
  *    # =>
@@ -1593,12 +1594,8 @@ rb_io_buffer_slice(struct rb_io_buffer *buffer, VALUE self, size_t offset, size_
  *    # it is also visible at position 1 of the original buffer
  *    buffer
  *    # =>
- *    # #<IO::Buffer 0x00007fc3d31e2d80+4 SLICE>
+ *    # #<IO::Buffer 0x00007fc3d31e2d80+4 INTERNAL>
  *    # 0x00000000  74 6f 73 74                                     tost
- *
- *    # ...and original string
- *    string
- *    # => tost
  */
 static VALUE
 io_buffer_slice(int argc, VALUE *argv, VALUE self)
@@ -2441,10 +2438,11 @@ rb_io_buffer_initialize_copy(VALUE self, VALUE source)
  *
  *  #copy can be used to put buffer into strings associated with buffer:
  *
- *    string= "data:    "
+ *    string = "data:    "
  *    # => "data:    "
- *    buffer = IO::Buffer.for(string)
- *    buffer.copy(IO::Buffer.for("test"), 5)
+ *    buffer = IO::Buffer.for(string) do |buffer|
+ *      buffer.copy(IO::Buffer.for("test"), 5)
+ *    end
  *    # => 4
  *    string
  *    # => "data:test"
@@ -2588,29 +2586,29 @@ rb_io_buffer_clear(VALUE self, uint8_t value, size_t offset, size_t length)
  *  Fill buffer with +value+, starting with +offset+ and going for +length+
  *  bytes.
  *
- *    buffer = IO::Buffer.for('test')
+ *    buffer = IO::Buffer.for('test').dup
  *    # =>
- *    #   <IO::Buffer 0x00007fca40087c38+4 SLICE>
+ *    #   <IO::Buffer 0x00007fca40087c38+4 INTERNAL>
  *    #   0x00000000  74 65 73 74         test
  *
  *    buffer.clear
  *    # =>
- *    #   <IO::Buffer 0x00007fca40087c38+4 SLICE>
+ *    #   <IO::Buffer 0x00007fca40087c38+4 INTERNAL>
  *    #   0x00000000  00 00 00 00         ....
  *
  *    buf.clear(1) # fill with 1
  *    # =>
- *    #   <IO::Buffer 0x00007fca40087c38+4 SLICE>
+ *    #   <IO::Buffer 0x00007fca40087c38+4 INTERNAL>
  *    #   0x00000000  01 01 01 01         ....
  *
  *    buffer.clear(2, 1, 2) # fill with 2, starting from offset 1, for 2 bytes
  *    # =>
- *    #   <IO::Buffer 0x00007fca40087c38+4 SLICE>
+ *    #   <IO::Buffer 0x00007fca40087c38+4 INTERNAL>
  *    #   0x00000000  01 02 02 01         ....
  *
  *    buffer.clear(2, 1) # fill with 2, starting from offset 1
  *    # =>
- *    #   <IO::Buffer 0x00007fca40087c38+4 SLICE>
+ *    #   <IO::Buffer 0x00007fca40087c38+4 INTERNAL>
  *    #   0x00000000  01 02 02 02         ....
  */
 static VALUE
@@ -2657,10 +2655,10 @@ io_buffer_default_size(size_t page_size)
 }
 
 struct io_buffer_blocking_region_argument {
+    struct rb_io *io;
     struct rb_io_buffer *buffer;
     rb_blocking_function_t *function;
     void *data;
-    int descriptor;
 };
 
 static VALUE
@@ -2668,7 +2666,7 @@ io_buffer_blocking_region_begin(VALUE _argument)
 {
     struct io_buffer_blocking_region_argument *argument = (void*)_argument;
 
-    return rb_thread_io_blocking_region(argument->function, argument->data, argument->descriptor);
+    return rb_io_blocking_region(argument->io, argument->function, argument->data);
 }
 
 static VALUE
@@ -2682,13 +2680,17 @@ io_buffer_blocking_region_ensure(VALUE _argument)
 }
 
 static VALUE
-io_buffer_blocking_region(struct rb_io_buffer *buffer, rb_blocking_function_t *function, void *data, int descriptor)
+io_buffer_blocking_region(VALUE io, struct rb_io_buffer *buffer, rb_blocking_function_t *function, void *data)
 {
+    io = rb_io_get_io(io);
+    struct rb_io *ioptr;
+    RB_IO_POINTER(io, ioptr);
+
     struct io_buffer_blocking_region_argument argument = {
+        .io = ioptr,
         .buffer = buffer,
         .function = function,
         .data = data,
-        .descriptor = descriptor,
     };
 
     // If the buffer is already locked, we can skip the ensure (unlock):
@@ -2775,7 +2777,7 @@ rb_io_buffer_read(VALUE self, VALUE io, size_t length, size_t offset)
         .length = length,
     };
 
-    return io_buffer_blocking_region(buffer, io_buffer_read_internal, &argument, descriptor);
+    return io_buffer_blocking_region(io, buffer, io_buffer_read_internal, &argument);
 }
 
 /*
@@ -2893,7 +2895,7 @@ rb_io_buffer_pread(VALUE self, VALUE io, rb_off_t from, size_t length, size_t of
         .offset = from,
     };
 
-    return io_buffer_blocking_region(buffer, io_buffer_pread_internal, &argument, descriptor);
+    return io_buffer_blocking_region(io, buffer, io_buffer_pread_internal, &argument);
 }
 
 /*
@@ -3012,7 +3014,7 @@ rb_io_buffer_write(VALUE self, VALUE io, size_t length, size_t offset)
         .length = length,
     };
 
-    return io_buffer_blocking_region(buffer, io_buffer_write_internal, &argument, descriptor);
+    return io_buffer_blocking_region(io, buffer, io_buffer_write_internal, &argument);
 }
 
 /*
@@ -3130,7 +3132,7 @@ rb_io_buffer_pwrite(VALUE self, VALUE io, rb_off_t from, size_t length, size_t o
         .offset = from,
     };
 
-    return io_buffer_blocking_region(buffer, io_buffer_pwrite_internal, &argument, descriptor);
+    return io_buffer_blocking_region(io, buffer, io_buffer_pwrite_internal, &argument);
 }
 
 /*

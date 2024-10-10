@@ -56,6 +56,11 @@ unsafe impl GlobalAlloc for StatsAlloc {
     }
 }
 
+/// The number of bytes YJIT has allocated on the Rust heap.
+pub fn yjit_alloc_size() -> usize {
+    GLOBAL_ALLOCATOR.alloc_size.load(Ordering::SeqCst)
+}
+
 /// Mapping of C function / ISEQ name to integer indices
 /// This is accessed at compilation time only (protected by a lock)
 static mut CFUNC_NAME_TO_IDX: Option<HashMap<String, usize>> = None;
@@ -770,12 +775,12 @@ fn rb_yjit_gen_stats_dict(key: VALUE) -> VALUE {
         set_stat_usize!(hash, "code_region_size", cb.mapped_region_size());
 
         // Rust global allocations in bytes
-        set_stat_usize!(hash, "yjit_alloc_size", GLOBAL_ALLOCATOR.alloc_size.load(Ordering::SeqCst));
+        set_stat_usize!(hash, "yjit_alloc_size", yjit_alloc_size());
 
         // How many bytes we are using to store context data
         let context_data = CodegenGlobals::get_context_data();
         set_stat_usize!(hash, "context_data_bytes", context_data.num_bytes());
-        set_stat_usize!(hash, "context_cache_bytes", crate::core::CTX_CACHE_BYTES);
+        set_stat_usize!(hash, "context_cache_bytes", crate::core::CTX_ENCODE_CACHE_BYTES + crate::core::CTX_DECODE_CACHE_BYTES);
 
         // VM instructions count
         set_stat_usize!(hash, "vm_insns_count", rb_vm_insns_count as usize);

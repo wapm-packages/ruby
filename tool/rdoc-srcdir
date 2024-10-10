@@ -1,5 +1,6 @@
-#!ruby
+#!ruby -W0
 
+$:.unshift(File.expand_path("../lib", __dir__))
 require 'rdoc/rdoc'
 
 # Make only the output directory relative to the invoked directory.
@@ -9,6 +10,12 @@ invoked = Dir.pwd
 Dir.chdir(File.dirname(__dir__))
 
 options = RDoc::Options.load_options
+options.title = options.title.sub(/Ruby \K.*version/) {
+  File.read("include/ruby/version.h")
+    .scan(/^ *# *define +RUBY_API_VERSION_(MAJOR|MINOR) +(\d+)/)
+    .sort # "MAJOR" < "MINOR", fortunately
+    .to_h.values.join(".")
+}
 options.parse ARGV
 
 options.singleton_class.define_method(:finish) do

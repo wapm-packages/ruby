@@ -115,21 +115,17 @@
 #define rb_str_catf                       p->config->str_catf
 #undef rb_str_cat_cstr
 #define rb_str_cat_cstr                   p->config->str_cat_cstr
-#define rb_str_cat                        p->config->str_cat
 #define rb_str_resize                     p->config->str_resize
 #undef rb_str_new
 #define rb_str_new                        p->config->str_new
 #undef rb_str_new_cstr
 #define rb_str_new_cstr                   p->config->str_new_cstr
 #define rb_str_to_interned_str            p->config->str_to_interned_str
-#define is_ascii_string                   p->config->is_ascii_string
 #define rb_enc_str_new                    p->config->enc_str_new
 #define rb_str_vcatf                      p->config->str_vcatf
 #define rb_sprintf                        p->config->rb_sprintf
 #undef RSTRING_PTR
 #define RSTRING_PTR                       p->config->rstring_ptr
-#undef RSTRING_END
-#define RSTRING_END                       p->config->rstring_end
 #undef RSTRING_LEN
 #define RSTRING_LEN                       p->config->rstring_len
 #define rb_obj_as_string                  p->config->obj_as_string

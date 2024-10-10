@@ -20,10 +20,6 @@ module Bundler
       Gem::Requirement.new(req_str).satisfied_by?(version)
     end
 
-    def supports_bundler_trampolining?
-      provides?(">= 3.3.0.a")
-    end
-
     def build_args
       require "rubygems/command"
       Gem::Command.build_args
@@ -59,23 +55,6 @@ module Bundler
       raise Gem::InvalidSpecificationException.new(error_message)
     rescue Errno::ENOENT
       nil
-    end
-
-    def spec_missing_extensions?(spec, default = true)
-      return spec.missing_extensions? if spec.respond_to?(:missing_extensions?)
-
-      return false if spec.default_gem?
-      return false if spec.extensions.empty?
-
-      default
-    end
-
-    def spec_matches_for_glob(spec, glob)
-      return spec.matches_for_glob(glob) if spec.respond_to?(:matches_for_glob)
-
-      spec.load_paths.flat_map do |lp|
-        Dir["#{lp}/#{glob}#{suffix_pattern}"]
-      end
     end
 
     def stub_set_spec(stub, spec)
@@ -364,11 +343,7 @@ module Bundler
       @replaced_methods.each do |(sym, klass), method|
         redefine_method(klass, sym, method)
       end
-      if Binding.public_method_defined?(:source_location)
-        post_reset_hooks.reject! {|proc| proc.binding.source_location[0] == __FILE__ }
-      else
-        post_reset_hooks.reject! {|proc| proc.binding.eval("__FILE__") == __FILE__ }
-      end
+      post_reset_hooks.reject! {|proc| proc.binding.source_location[0] == __FILE__ }
       @replaced_methods.clear
     end
 

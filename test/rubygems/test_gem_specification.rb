@@ -1334,7 +1334,6 @@ dependencies: []
   end
 
   def test_build_args
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     assert_empty @ext.build_args
@@ -1351,7 +1350,6 @@ dependencies: []
   end
 
   def test_build_extensions
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     assert_path_not_exist @ext.extension_dir, "sanity check"
@@ -1387,7 +1385,6 @@ dependencies: []
   end
 
   def test_build_extensions_built
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     refute_empty @ext.extensions, "sanity check"
@@ -1426,7 +1423,6 @@ dependencies: []
   end
 
   def test_build_extensions_error
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     refute_empty @ext.extensions, "sanity check"
@@ -1440,7 +1436,7 @@ dependencies: []
     pend "chmod not supported" if Gem.win_platform?
     pend "skipped in root privilege" if Process.uid.zero?
 
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
+    pend "needs investigation" if Gem.java_platform?
     ext_spec
 
     refute_empty @ext.extensions, "sanity check"
@@ -1473,7 +1469,6 @@ dependencies: []
 
   def test_build_extensions_no_extensions_dir_unwritable
     pend "chmod not supported" if Gem.win_platform?
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     refute_empty @ext.extensions, "sanity check"
@@ -1512,7 +1507,6 @@ dependencies: []
   end
 
   def test_build_extensions_preview
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     extconf_rb = File.join @ext.gem_dir, @ext.extensions.first
@@ -1547,7 +1541,6 @@ dependencies: []
   end
 
   def test_contains_requirable_file_eh_extension
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     _, err = capture_output do
@@ -3087,6 +3080,40 @@ Please report a bug if this causes problems.
     assert_equal(expected, actual_stderr)
   end
 
+  def test_unresolved_specs_with_duplicated_versions
+    specification = Gem::Specification.clone
+
+    set_orig specification
+
+    specification.define_singleton_method(:unresolved_deps) do
+      { b: Gem::Dependency.new("x","1") }
+    end
+
+    specification.define_singleton_method(:find_all_by_name) do |_dep_name|
+      [
+        specification.new {|s| s.name = "z", s.version = Gem::Version.new("1") }, # default copy
+        specification.new {|s| s.name = "z", s.version = Gem::Version.new("1") }, # regular copy
+        specification.new {|s| s.name = "z", s.version = Gem::Version.new("2") }, # regular copy
+      ]
+    end
+
+    expected = <<-EXPECTED
+WARN: Unresolved or ambiguous specs during Gem::Specification.reset:
+      x (= 1)
+      Available/installed versions of this gem:
+      - 1
+      - 2
+WARN: Clearing out unresolved specs. Try 'gem cleanup <gem>'
+Please report a bug if this causes problems.
+    EXPECTED
+
+    actual_stdout, actual_stderr = capture_output do
+      specification.reset
+    end
+    assert_empty actual_stdout
+    assert_equal(expected, actual_stderr)
+  end
+
   def test_duplicate_runtime_dependency
     expected = "WARNING: duplicated b dependency [\"~> 3.0\", \"~> 3.0\"]\n"
     out, err = capture_output do
@@ -3809,7 +3836,6 @@ end
   end
 
   def test_missing_extensions_eh
-    pend "extensions don't quite work on jruby" if Gem.java_platform?
     ext_spec
 
     assert @ext.missing_extensions?

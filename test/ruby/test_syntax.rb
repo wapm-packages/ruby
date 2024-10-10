@@ -1968,16 +1968,23 @@ eom
     assert_valid_syntax("def foo b = 1, ...; bar(...); end")
     assert_valid_syntax("(def foo ...\n  bar(...)\nend)")
     assert_valid_syntax("(def foo ...; bar(...); end)")
+    assert_valid_syntax("def (1...).foo ...; bar(...); end")
+    assert_valid_syntax("def (tap{1...}).foo ...; bar(...); end")
     assert_valid_syntax('def ==(...) end')
     assert_valid_syntax('def [](...) end')
     assert_valid_syntax('def nil(...) end')
     assert_valid_syntax('def true(...) end')
     assert_valid_syntax('def false(...) end')
+    assert_valid_syntax('->a=1...{}')
     unexpected = /unexpected \.{3}/
     assert_syntax_error('iter do |...| end', /unexpected/)
     assert_syntax_error('iter {|...|}', /unexpected/)
     assert_syntax_error('->... {}', unexpected)
     assert_syntax_error('->(...) {}', unexpected)
+    assert_syntax_error('->a,... {}', unexpected)
+    assert_syntax_error('->(a,...) {}', unexpected)
+    assert_syntax_error('->a=1,... {}', unexpected)
+    assert_syntax_error('->(a=1,...) {}', unexpected)
     assert_syntax_error('def foo(x, y, z) bar(...); end', /unexpected/)
     assert_syntax_error('def foo(x, y, z) super(...); end', /unexpected/)
     assert_syntax_error('def foo(...) yield(...); end', /unexpected/)
@@ -2225,6 +2232,43 @@ eom
       n = case 1i when 1i then true else false end
       assert_equal(n, true, '[ruby-core:103759] [Bug #17854]')
     RUBY
+  end
+
+  def test_defined_in_short_circuit_if_condition
+    bug = '[ruby-core:20501]'
+    conds = [
+      "false && defined?(Some::CONSTANT)",
+      "true || defined?(Some::CONSTANT)",
+      "(false && defined?(Some::CONSTANT))", # parens exercise different code path
+      "(true || defined?(Some::CONSTANT))",
+      "@val && false && defined?(Some::CONSTANT)",
+      "@val || true || defined?(Some::CONSTANT)"
+    ]
+
+    conds.each do |cond|
+      code = %Q{
+        def my_method
+          var = "there"
+          if #{cond}
+            var = "here"
+          end
+          raise var
+        end
+        begin
+          my_method
+        rescue
+          print 'ok'
+        else
+          print 'ng'
+        end
+      }
+      # Invoke in a subprocess because the bug caused a segfault using the parse.y compiler.
+      # Don't use assert_separately because the bug was best reproducible in a clean slate,
+      # without test env loaded.
+      out, _err, status = EnvUtil.invoke_ruby(["--disable-gems"], code, true, false)
+      assert_predicate(status, :success?, bug)
+      assert_equal 'ok', out
+    end
   end
 
   private

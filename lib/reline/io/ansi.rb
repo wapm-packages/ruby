@@ -75,7 +75,10 @@ class Reline::ANSI < Reline::IO
 
   def set_default_key_bindings_ansi_cursor(config)
     ANSI_CURSOR_KEY_BINDINGS.each do |char, (default_func, modifiers)|
-      bindings = [["\e[#{char}", default_func]] # CSI + char
+      bindings = [
+        ["\e[#{char}", default_func], # CSI + char
+        ["\eO#{char}", default_func] # SS3 + char, application cursor key mode
+      ]
       if modifiers[:ctrl]
         # CSI + ctrl_key_modifier + char
         bindings << ["\e[1;5#{char}", modifiers[:ctrl]]
@@ -123,27 +126,9 @@ class Reline::ANSI < Reline::IO
       [27, 91, 49, 126] => :ed_move_to_beg, # Home
       [27, 91, 52, 126] => :ed_move_to_end, # End
 
-      # KDE
-      # Del is 0x08
-      [27, 71, 65] => :ed_prev_history,     # ↑
-      [27, 71, 66] => :ed_next_history,     # ↓
-      [27, 71, 67] => :ed_next_char,        # →
-      [27, 71, 68] => :ed_prev_char,        # ←
-
       # urxvt / exoterm
       [27, 91, 55, 126] => :ed_move_to_beg, # Home
       [27, 91, 56, 126] => :ed_move_to_end, # End
-
-      # GNOME
-      [27, 79, 72] => :ed_move_to_beg,      # Home
-      [27, 79, 70] => :ed_move_to_end,      # End
-      # Del is 0x08
-      # Arrow keys are the same of KDE
-
-      [27, 79, 65] => :ed_prev_history,     # ↑
-      [27, 79, 66] => :ed_next_history,     # ↓
-      [27, 79, 67] => :ed_next_char,        # →
-      [27, 79, 68] => :ed_prev_char,        # ←
     }.each_pair do |key, func|
       config.add_default_key_binding_by_keymap(:emacs, key, func)
       config.add_default_key_binding_by_keymap(:vi_insert, key, func)
@@ -245,39 +230,30 @@ class Reline::ANSI < Reline::IO
     self
   end
 
-  def cursor_pos
-    if both_tty?
-      res = +''
-      m = nil
-      @input.raw do |stdin|
-        @output << "\e[6n"
-        @output.flush
-        loop do
-          c = stdin.getc
-          next if c.nil?
-          res << c
-          m = res.match(/\e\[(?<row>\d+);(?<column>\d+)R/)
-          break if m
-        end
-        (m.pre_match + m.post_match).chars.reverse_each do |ch|
-          stdin.ungetc ch
+  private def cursor_pos_internal(timeout:)
+    match = nil
+    @input.raw do |stdin|
+      @output << "\e[6n"
+      @output.flush
+      timeout_at = Time.now + timeout
+      buf = +''
+      while (wait = timeout_at - Time.now) > 0 && stdin.wait_readable(wait)
+        buf << stdin.readpartial(1024)
+        if (match = buf.match(/\e\[(?<row>\d+);(?<column>\d+)R/))
+          buf = match.pre_match + match.post_match
+          break
         end
       end
-      column = m[:column].to_i - 1
-      row = m[:row].to_i - 1
-    else
-      begin
-        buf = @output.pread(@output.pos, 0)
-        row = buf.count("\n")
-        column = buf.rindex("\n") ? (buf.size - buf.rindex("\n")) - 1 : 0
-      rescue Errno::ESPIPE, IOError
-        # Just returns column 1 for ambiguous width because this I/O is not
-        # tty and can't seek.
-        row = 0
-        column = 1
+      buf.chars.reverse_each do |ch|
+        stdin.ungetc ch
       end
     end
-    Reline::CursorPos.new(column, row)
+    [match[:column].to_i - 1, match[:row].to_i - 1] if match
+  end
+
+  def cursor_pos
+    col, row = cursor_pos_internal(timeout: 0.5) if both_tty?
+    Reline::CursorPos.new(col || 0, row || 0)
   end
 
   def both_tty?

@@ -70,7 +70,6 @@ HTMLOUT       = $(EXTOUT)/html
 CAPIOUT       = doc/capi
 INSTALL_DOC_OPTS = --rdoc-output="$(RDOCOUT)" --html-output="$(HTMLOUT)"
 RDOC_GEN_OPTS = --no-force-update \
-	--title "Documentation for Ruby $(RUBY_API_VERSION)" \
 	$(empty)
 
 INITOBJS      = dmyext.$(OBJEXT) dmyenc.$(OBJEXT)
@@ -1912,10 +1911,10 @@ shared-gc: probes.h
 	elif test -z $(SHARED_GC); then \
 		echo "You must specify SHARED_GC with the GC to build"; \
 		exit 1; \
-	else \
-		echo generating $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT); \
-		$(LDSHARED) -I$(srcdir)/include -I$(srcdir) -I$(arch_hdrdir) $(XDLDFLAGS) $(cflags) -DBUILDING_SHARED_GC -fPIC -o $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT) $(srcdir)/gc/$(SHARED_GC).c; \
 	fi
+	$(ECHO) generating $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT)
+	$(Q) $(MAKEDIRS) $(shared_gc_dir)
+	$(Q) $(LDSHARED) -I$(srcdir)/include -I$(srcdir) -I$(arch_hdrdir) $(XDLDFLAGS) $(cflags) -DBUILDING_SHARED_GC -fPIC -o $(shared_gc_dir)librubygc.$(SHARED_GC).$(SOEXT) $(srcdir)/gc/$(SHARED_GC).c
 
 help: PHONY
 	$(MESSAGE_BEGIN) \
@@ -8601,6 +8600,7 @@ io_buffer.$(OBJEXT): $(top_srcdir)/internal/bits.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/compilers.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/error.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/fixnum.h
+io_buffer.$(OBJEXT): $(top_srcdir)/internal/io.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/numeric.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/serial.h
 io_buffer.$(OBJEXT): $(top_srcdir)/internal/static_assert.h
@@ -12621,6 +12621,8 @@ prism/node.$(OBJEXT): {$(VPATH)}prism/node.c
 prism/options.$(OBJEXT): $(top_srcdir)/prism/defines.h
 prism/options.$(OBJEXT): $(top_srcdir)/prism/options.c
 prism/options.$(OBJEXT): $(top_srcdir)/prism/options.h
+prism/options.$(OBJEXT): $(top_srcdir)/prism/util/pm_char.h
+prism/options.$(OBJEXT): $(top_srcdir)/prism/util/pm_newline_list.h
 prism/options.$(OBJEXT): $(top_srcdir)/prism/util/pm_string.h
 prism/pack.$(OBJEXT): $(top_srcdir)/prism/defines.h
 prism/pack.$(OBJEXT): $(top_srcdir)/prism/pack.c
@@ -15740,6 +15742,7 @@ rjit_c.$(OBJEXT): $(hdrdir)/ruby/ruby.h
 rjit_c.$(OBJEXT): $(srcdir)/rjit_c.rb
 rjit_c.$(OBJEXT): $(top_srcdir)/internal/array.h
 rjit_c.$(OBJEXT): $(top_srcdir)/internal/basic_operators.h
+rjit_c.$(OBJEXT): $(top_srcdir)/internal/bits.h
 rjit_c.$(OBJEXT): $(top_srcdir)/internal/class.h
 rjit_c.$(OBJEXT): $(top_srcdir)/internal/compile.h
 rjit_c.$(OBJEXT): $(top_srcdir)/internal/compilers.h
@@ -19519,6 +19522,7 @@ version.$(OBJEXT): $(top_srcdir)/internal/cmdlineopt.h
 version.$(OBJEXT): $(top_srcdir)/internal/compilers.h
 version.$(OBJEXT): $(top_srcdir)/internal/gc.h
 version.$(OBJEXT): $(top_srcdir)/internal/imemo.h
+version.$(OBJEXT): $(top_srcdir)/internal/parse.h
 version.$(OBJEXT): $(top_srcdir)/internal/sanitizers.h
 version.$(OBJEXT): $(top_srcdir)/internal/serial.h
 version.$(OBJEXT): $(top_srcdir)/internal/static_assert.h

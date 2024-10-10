@@ -396,13 +396,15 @@ class Resolv
     # be a Resolv::IPv4 or Resolv::IPv6
 
     def each_address(name)
-      each_resource(name, Resource::IN::A) {|resource| yield resource.address}
       if use_ipv6?
         each_resource(name, Resource::IN::AAAA) {|resource| yield resource.address}
       end
+      each_resource(name, Resource::IN::A) {|resource| yield resource.address}
     end
 
     def use_ipv6? # :nodoc:
+      @config.lazy_initialize unless @config.instance_variable_get(:@initialized)
+
       use_ipv6 = @config.use_ipv6?
       unless use_ipv6.nil?
         return use_ipv6

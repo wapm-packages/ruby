@@ -197,6 +197,15 @@ undefined method `foo' for #{ NIL_RECV_MESSAGE }
     end
   end
 
+  def test_CALL_arg_7
+    assert_error_message(ArgumentError, <<~END) do
+tried to create Proc object without a block (ArgumentError)
+    END
+
+      Proc.new
+    end
+  end
+
   def test_QCALL_1
     assert_error_message(NoMethodError, <<~END) do
 undefined method `foo' for #{ ONE_RECV_MESSAGE }
@@ -1232,7 +1241,7 @@ nil can't be coerced into Integer (TypeError)
     assert_error_message(NoMethodError, <<~END) do
 undefined method `time' for #{ ONE_RECV_MESSAGE }
 
-{:first_lineno=>#{ __LINE__ + 3 }, :first_column=>7, :last_lineno=>#{ __LINE__ + 3 }, :last_column=>12, :snippet=>"      1.time {}\\n"}
+#{{ first_lineno: __LINE__ + 3, first_column: 7, last_lineno: __LINE__ + 3, last_column: 12, snippet: "      1.time {}\n" }.inspect}
     END
 
       1.time {}

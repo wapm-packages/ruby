@@ -432,7 +432,7 @@ impl CodeBlock {
     }
 
     /// Convert an address range to memory page indexes against a num_pages()-sized array.
-    pub fn addrs_to_pages(&self, start_addr: CodePtr, end_addr: CodePtr) -> Vec<usize> {
+    pub fn addrs_to_pages(&self, start_addr: CodePtr, end_addr: CodePtr) -> impl Iterator<Item = usize> {
         let mem_start = self.mem_block.borrow().start_ptr().raw_addr(self);
         let mem_end = self.mem_block.borrow().mapped_end_ptr().raw_addr(self);
         assert!(mem_start <= start_addr.raw_addr(self));
@@ -441,12 +441,12 @@ impl CodeBlock {
 
         // Ignore empty code ranges
         if start_addr == end_addr {
-            return vec![];
+            return (0..0).into_iter();
         }
 
         let start_page = (start_addr.raw_addr(self) - mem_start) / self.page_size;
         let end_page = (end_addr.raw_addr(self) - mem_start - 1) / self.page_size;
-        (start_page..=end_page).collect() // TODO: consider returning an iterator
+        (start_page..end_page + 1).into_iter()
     }
 
     /// Get a (possibly dangling) direct pointer to the current write position
@@ -686,7 +686,7 @@ impl CodeBlock {
 
         let alloc = TestingAllocator::new(mem_size);
         let mem_start: *const u8 = alloc.mem_start();
-        let virt_mem = VirtualMem::new(alloc, 1, NonNull::new(mem_start as *mut u8).unwrap(), mem_size);
+        let virt_mem = VirtualMem::new(alloc, 1, NonNull::new(mem_start as *mut u8).unwrap(), mem_size, 128 * 1024 * 1024);
 
         Self::new(Rc::new(RefCell::new(virt_mem)), false, Rc::new(None), true)
     }
@@ -704,7 +704,7 @@ impl CodeBlock {
 
         let alloc = TestingAllocator::new(mem_size);
         let mem_start: *const u8 = alloc.mem_start();
-        let virt_mem = VirtualMem::new(alloc, 1, NonNull::new(mem_start as *mut u8).unwrap(), mem_size);
+        let virt_mem = VirtualMem::new(alloc, 1, NonNull::new(mem_start as *mut u8).unwrap(), mem_size, 128 * 1024 * 1024);
 
         Self::new(Rc::new(RefCell::new(virt_mem)), false, Rc::new(Some(freed_pages)), true)
     }

@@ -354,11 +354,13 @@ rb_iseq_mark_and_move(rb_iseq_t *iseq, bool reference_updating)
             }
         }
 
-        if (body->param.flags.has_kw && ISEQ_COMPILE_DATA(iseq) == NULL) {
+        if (body->param.flags.has_kw && body->param.keyword != NULL) {
             const struct rb_iseq_param_keyword *const keyword = body->param.keyword;
 
-            for (int j = 0, i = keyword->required_num; i < keyword->num; i++, j++) {
-                rb_gc_mark_and_move(&keyword->default_values[j]);
+            if (keyword->default_values != NULL) {
+                for (int j = 0, i = keyword->required_num; i < keyword->num; i++, j++) {
+                    rb_gc_mark_and_move(&keyword->default_values[j]);
+                }
             }
         }
 
@@ -1564,7 +1566,49 @@ iseqw_s_compile_parser(int argc, VALUE *argv, VALUE self, bool prism)
 static VALUE
 iseqw_s_compile(int argc, VALUE *argv, VALUE self)
 {
-    return iseqw_s_compile_parser(argc, argv, self, *rb_ruby_prism_ptr());
+    return iseqw_s_compile_parser(argc, argv, self, rb_ruby_prism_p());
+}
+
+/*
+ *  call-seq:
+ *     InstructionSequence.compile_parsey(source[, file[, path[, line[, options]]]]) -> iseq
+ *
+ *  Takes +source+, which can be a string of Ruby code, or an open +File+ object.
+ *  that contains Ruby source code. It parses and compiles using parse.y.
+ *
+ *  Optionally takes +file+, +path+, and +line+ which describe the file path,
+ *  real path and first line number of the ruby code in +source+ which are
+ *  metadata attached to the returned +iseq+.
+ *
+ *  +file+ is used for `__FILE__` and exception backtrace. +path+ is used for
+ *  +require_relative+ base. It is recommended these should be the same full
+ *  path.
+ *
+ *  +options+, which can be +true+, +false+ or a +Hash+, is used to
+ *  modify the default behavior of the Ruby iseq compiler.
+ *
+ *  For details regarding valid compile options see ::compile_option=.
+ *
+ *     RubyVM::InstructionSequence.compile_parsey("a = 1 + 2")
+ *     #=> <RubyVM::InstructionSequence:<compiled>@<compiled>>
+ *
+ *     path = "test.rb"
+ *     RubyVM::InstructionSequence.compile_parsey(File.read(path), path, File.expand_path(path))
+ *     #=> <RubyVM::InstructionSequence:<compiled>@test.rb:1>
+ *
+ *     file = File.open("test.rb")
+ *     RubyVM::InstructionSequence.compile_parsey(file)
+ *     #=> <RubyVM::InstructionSequence:<compiled>@<compiled>:1>
+ *
+ *     path = File.expand_path("test.rb")
+ *     RubyVM::InstructionSequence.compile_parsey(File.read(path), path, path)
+ *     #=> <RubyVM::InstructionSequence:<compiled>@/absolute/path/to/test.rb:1>
+ *
+ */
+static VALUE
+iseqw_s_compile_parsey(int argc, VALUE *argv, VALUE self)
+{
+    return iseqw_s_compile_parser(argc, argv, self, false);
 }
 
 /*
@@ -1587,19 +1631,19 @@ iseqw_s_compile(int argc, VALUE *argv, VALUE self)
  *
  *  For details regarding valid compile options see ::compile_option=.
  *
- *     RubyVM::InstructionSequence.compile("a = 1 + 2")
+ *     RubyVM::InstructionSequence.compile_prism("a = 1 + 2")
  *     #=> <RubyVM::InstructionSequence:<compiled>@<compiled>>
  *
  *     path = "test.rb"
- *     RubyVM::InstructionSequence.compile(File.read(path), path, File.expand_path(path))
+ *     RubyVM::InstructionSequence.compile_prism(File.read(path), path, File.expand_path(path))
  *     #=> <RubyVM::InstructionSequence:<compiled>@test.rb:1>
  *
  *     file = File.open("test.rb")
- *     RubyVM::InstructionSequence.compile(file)
+ *     RubyVM::InstructionSequence.compile_prism(file)
  *     #=> <RubyVM::InstructionSequence:<compiled>@<compiled>:1>
  *
  *     path = File.expand_path("test.rb")
- *     RubyVM::InstructionSequence.compile(File.read(path), path, path)
+ *     RubyVM::InstructionSequence.compile_prism(File.read(path), path, path)
  *     #=> <RubyVM::InstructionSequence:<compiled>@/absolute/path/to/test.rb:1>
  *
  */
@@ -4281,6 +4325,7 @@ Init_ISeq(void)
     (void)iseq_s_load;
 
     rb_define_singleton_method(rb_cISeq, "compile", iseqw_s_compile, -1);
+    rb_define_singleton_method(rb_cISeq, "compile_parsey", iseqw_s_compile_parsey, -1);
     rb_define_singleton_method(rb_cISeq, "compile_prism", iseqw_s_compile_prism, -1);
     rb_define_singleton_method(rb_cISeq, "compile_file_prism", iseqw_s_compile_file_prism, -1);
     rb_define_singleton_method(rb_cISeq, "new", iseqw_s_compile, -1);

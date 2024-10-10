@@ -3763,9 +3763,7 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
             break;
           }
           default:
-            UNREACHABLE;
-            RUBY_ASSERT("append_as_bytes arguments should have been validated");
-            break;
+            rb_bug("append_as_bytes arguments should have been validated");
         }
     }
 
@@ -3790,11 +3788,10 @@ rb_str_append_as_bytes(int argc, VALUE *argv, VALUE str)
                 if (ENC_CODERANGE(obj) != ENC_CODERANGE_7BIT) {
                     goto clear_cr;
                 }
+                break;
               }
               default:
-                UNREACHABLE;
-                RUBY_ASSERT("append_as_bytes arguments should have been validated");
-                break;
+                rb_bug("append_as_bytes arguments should have been validated");
             }
         }
         break;
@@ -6095,8 +6092,8 @@ rb_pat_search(VALUE pat, VALUE str, long pos, int set_backref_str)
  *    sub!(pattern, replacement)   -> self or nil
  *    sub!(pattern) {|match| ... } -> self or nil
  *
- *  Returns +self+ with only the first occurrence
- *  (not all occurrences) of the given +pattern+ replaced.
+ *  Replaces the first occurrence (not all occurrences) of the given +pattern+
+ *  on +self+; returns +self+ if a replacement occurred, +nil+ otherwise.
  *
  *  See {Substitution Methods}[rdoc-ref:String@Substitution+Methods].
  *

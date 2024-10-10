@@ -490,7 +490,8 @@ rb_vmdebug_thread_dump_state(FILE *errout, VALUE self)
 }
 
 #if defined __APPLE__
-# if __DARWIN_UNIX03
+# include <AvailabilityMacros.h>
+# if defined(MAC_OS_X_VERSION_10_5) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5
 #   define MCTX_SS_REG(reg) __ss.__##reg
 # else
 #   define MCTX_SS_REG(reg) ss.reg
@@ -502,7 +503,8 @@ rb_vmdebug_thread_dump_state(FILE *errout, VALUE self)
 # ifdef HAVE_LIBUNWIND
 #  undef backtrace
 #  define backtrace unw_backtrace
-# elif defined(__APPLE__) && defined(HAVE_LIBUNWIND_H)
+# elif defined(__APPLE__) && defined(HAVE_LIBUNWIND_H) \
+    && defined(MAC_OS_X_VERSION_10_6) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
 #  define UNW_LOCAL_ONLY
 #  include <libunwind.h>
 #  include <sys/mman.h>
@@ -997,26 +999,24 @@ rb_dump_machine_register(FILE *errout, const ucontext_t *ctx)
         dump_machine_register(mctx->__gregs[REG_S2+9], "s11");
 #   elif defined __loongarch64
         dump_machine_register(mctx->__gregs[LARCH_REG_SP], "sp");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A0], "a0");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A1], "a1");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A2], "a2");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A3], "a3");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A4], "a4");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A5], "a5");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A6], "a6");
+        dump_machine_register(mctx->__gregs[LARCH_REG_A7], "a7");
+        dump_machine_register(mctx->__gregs[LARCH_REG_FP], "fp");
         dump_machine_register(mctx->__gregs[LARCH_REG_S0], "s0");
         dump_machine_register(mctx->__gregs[LARCH_REG_S1], "s1");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0], "a0");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+1], "a1");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+2], "a2");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+3], "a3");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+4], "a4");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+5], "a5");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+6], "a6");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+7], "a7");
-        dump_machine_register(mctx->__gregs[LARCH_REG_A0+7], "a7");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0], "s0");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+1], "s1");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+2], "s2");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+3], "s3");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+4], "s4");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+5], "s5");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+6], "s6");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+7], "s7");
-        dump_machine_register(mctx->__gregs[LARCH_REG_S0+8], "s8");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S2], "s2");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S3], "s3");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S4], "s4");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S5], "s5");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S6], "s6");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S7], "s7");
+        dump_machine_register(mctx->__gregs[LARCH_REG_S8], "s8");
 #   endif
     }
 # elif defined __APPLE__

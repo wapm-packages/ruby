@@ -706,6 +706,21 @@ RSpec.describe "Bundler.setup" do
     expect(out).to be_empty
   end
 
+  it "has gem_dir pointing to local repo" do
+    build_lib "foo", "1.0", path: bundled_app
+
+    install_gemfile <<-G
+      source "https://gem.repo1"
+      gemspec
+    G
+
+    run <<-R
+      puts Gem.loaded_specs['foo'].gem_dir
+    R
+
+    expect(out).to eq(bundled_app.to_s)
+  end
+
   it "does not load all gemspecs" do
     install_gemfile <<-G
       source "https://gem.repo1"
@@ -865,7 +880,6 @@ end
   it "should clean $LOAD_PATH properly" do
     gem_name = "very_simple_binary"
     full_gem_name = gem_name + "-1.0"
-    ext_dir = File.join(tmp("extensions", full_gem_name))
 
     system_gems full_gem_name
 
@@ -874,12 +888,6 @@ end
     G
 
     ruby <<-R
-      s = Gem::Specification.find_by_name '#{gem_name}'
-      s.extension_dir = '#{ext_dir}'
-
-      # Don't build extensions.
-      s.class.send(:define_method, :build_extensions) { nil }
-
       require 'bundler'
       gem '#{gem_name}'
 
@@ -1399,8 +1407,6 @@ end
       let(:exemptions) do
         exempts = %w[did_you_mean bundler uri pathname]
         exempts << "etc" if (Gem.ruby_version < Gem::Version.new("3.2") || Gem.ruby_version >= Gem::Version.new("3.3.2")) && Gem.win_platform?
-        exempts << "set" unless Gem.rubygems_version >= Gem::Version.new("3.2.6")
-        exempts << "tsort" unless Gem.rubygems_version >= Gem::Version.new("3.2.31")
         exempts << "error_highlight" # added in Ruby 3.1 as a default gem
         exempts << "ruby2_keywords" # added in Ruby 3.1 as a default gem
         exempts << "syntax_suggest" # added in Ruby 3.2 as a default gem

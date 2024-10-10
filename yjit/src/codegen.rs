@@ -5135,6 +5135,33 @@ fn jit_rb_mod_eqq(
     return true;
 }
 
+// Substitution for rb_mod_name(). Returns the name of a module/class.
+fn jit_rb_mod_name(
+    _jit: &mut JITState,
+    asm: &mut Assembler,
+    _ci: *const rb_callinfo,
+    _cme: *const rb_callable_method_entry_t,
+    _block: Option<BlockHandler>,
+    argc: i32,
+    _known_recv_class: Option<VALUE>,
+) -> bool {
+    if argc != 0 {
+        return false;
+    }
+
+    asm_comment!(asm, "Module#name");
+
+    // rb_mod_name() never allocates, so no preparation needed.
+    let name = asm.ccall(rb_mod_name as _, vec![asm.stack_opnd(0)]);
+
+    let _ = asm.stack_pop(1); // pop self
+    // call-seq: mod.name -> string or nil
+    let ret = asm.stack_push(Type::Unknown);
+    asm.mov(ret, name);
+
+    true
+}
+
 // Codegen for rb_obj_equal()
 // object identity comparison
 fn jit_rb_obj_equal(
@@ -10373,6 +10400,7 @@ pub fn yjit_reg_method_codegen_fns() {
         yjit_reg_method(rb_mKernel, "eql?", jit_rb_obj_equal);
         yjit_reg_method(rb_cModule, "==", jit_rb_obj_equal);
         yjit_reg_method(rb_cModule, "===", jit_rb_mod_eqq);
+        yjit_reg_method(rb_cModule, "name", jit_rb_mod_name);
         yjit_reg_method(rb_cSymbol, "==", jit_rb_obj_equal);
         yjit_reg_method(rb_cSymbol, "===", jit_rb_obj_equal);
         yjit_reg_method(rb_cInteger, "==", jit_rb_int_equal);
@@ -10504,11 +10532,11 @@ impl CodegenGlobals {
     /// Initialize the codegen globals
     pub fn init() {
         // Executable memory and code page size in bytes
-        let mem_size = get_option!(exec_mem_size);
+        let exec_mem_size = get_option!(exec_mem_size).unwrap_or(get_option!(mem_size));
 
         #[cfg(not(test))]
         let (mut cb, mut ocb) = {
-            let virt_block: *mut u8 = unsafe { rb_yjit_reserve_addr_space(mem_size as u32) };
+            let virt_block: *mut u8 = unsafe { rb_yjit_reserve_addr_space(exec_mem_size as u32) };
 
             // Memory protection syscalls need page-aligned addresses, so check it here. Assuming
             // `virt_block` is page-aligned, `second_half` should be page-aligned as long as the
@@ -10530,7 +10558,8 @@ impl CodegenGlobals {
                 SystemAllocator {},
                 page_size,
                 NonNull::new(virt_block).unwrap(),
-                mem_size,
+                exec_mem_size,
+                get_option!(mem_size),
             );
             let mem_block = Rc::new(RefCell::new(mem_block));
 
@@ -10546,9 +10575,9 @@ impl CodegenGlobals {
         // In test mode we're not linking with the C code
         // so we don't allocate executable memory
         #[cfg(test)]
-        let mut cb = CodeBlock::new_dummy(mem_size / 2);
+        let mut cb = CodeBlock::new_dummy(exec_mem_size / 2);
         #[cfg(test)]
-        let mut ocb = OutlinedCb::wrap(CodeBlock::new_dummy(mem_size / 2));
+        let mut ocb = OutlinedCb::wrap(CodeBlock::new_dummy(exec_mem_size / 2));
 
         let ocb_start_addr = ocb.unwrap().get_write_ptr();
         let leave_exit_code = gen_leave_exit(&mut ocb).unwrap();
@@ -10563,7 +10592,7 @@ impl CodegenGlobals {
         let cfunc_exit_code = gen_full_cfunc_return(&mut ocb).unwrap();
 
         let ocb_end_addr = ocb.unwrap().get_write_ptr();
-        let ocb_pages = ocb.unwrap().addrs_to_pages(ocb_start_addr, ocb_end_addr);
+        let ocb_pages = ocb.unwrap().addrs_to_pages(ocb_start_addr, ocb_end_addr).collect();
 
         // Mark all code memory as executable
         cb.mark_all_executable();

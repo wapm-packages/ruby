@@ -1430,10 +1430,10 @@ proc_long_options(ruby_cmdline_options_t *opt, const char *s, long argc, char **
     }
     else if (is_option_with_arg("parser", Qfalse, Qtrue)) {
         if (strcmp("prism", s) == 0) {
-            *rb_ruby_prism_ptr() = true;
+            rb_ruby_default_parser_set(RB_DEFAULT_PARSER_PRISM);
         }
         else if (strcmp("parse.y", s) == 0) {
-            *rb_ruby_prism_ptr() = false;
+            rb_ruby_default_parser_set(RB_DEFAULT_PARSER_PARSE_Y);
         }
         else {
             rb_raise(rb_eRuntimeError, "unknown parser %s", s);
@@ -2193,10 +2193,12 @@ prism_script(ruby_cmdline_options_t *opt, pm_parse_result_t *result)
         error = pm_parse_string(result, opt->e_script, rb_str_new2("-e"), NULL);
     }
     else {
+        VALUE script_name = rb_str_encode_ospath(opt->script_name);
+
         pm_options_command_line_set(options, command_line);
         pm_options_shebang_callback_set(options, prism_script_shebang_callback, (void *) opt);
 
-        error = pm_load_file(result, opt->script_name, true);
+        error = pm_load_file(result, script_name, true);
 
         // If reading the file did not error, at that point we load the command
         // line options. We do it in this order so that if the main script fails
@@ -2217,7 +2219,7 @@ prism_script(ruby_cmdline_options_t *opt, pm_parse_result_t *result)
         // contents after the marker.
         if (NIL_P(error) && result->parser.data_loc.start != NULL) {
             int xflag = opt->xflag;
-            VALUE file = open_load_file(opt->script_name, &xflag);
+            VALUE file = open_load_file(script_name, &xflag);
 
             const pm_parser_t *parser = &result->parser;
             size_t offset = parser->data_loc.start - parser->start + 7;
@@ -2520,7 +2522,7 @@ process_options(int argc, char **argv, ruby_cmdline_options_t *opt)
         rb_enc_associate(opt->e_script, eenc);
     }
 
-    if (!(*rb_ruby_prism_ptr())) {
+    if (!rb_ruby_prism_p()) {
         ast_value = process_script(opt);
         if (!(result.ast = rb_ruby_ast_data_get(ast_value))) return Qfalse;
     }

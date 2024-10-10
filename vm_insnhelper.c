@@ -2309,8 +2309,10 @@ typedef union {
     VALUE (*f15)(VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE, VALUE);
     VALUE (*fm1)(int, union { VALUE *x; const VALUE *y; } __attribute__((__transparent_union__)), VALUE);
 } __attribute__((__transparent_union__)) cfunc_type;
+# define make_cfunc_type(f) (cfunc_type){.anyargs = (VALUE (*)(ANYARGS))(f)}
 #else
 typedef VALUE (*cfunc_type)(ANYARGS);
+# define make_cfunc_type(f) (cfunc_type)(f)
 #endif
 
 static inline int
@@ -2343,6 +2345,9 @@ vm_method_cfunc_is(const rb_iseq_t *iseq, CALL_DATA cd, VALUE recv, cfunc_type f
     const struct rb_callcache *cc = vm_search_method((VALUE)iseq, cd, recv);
     return check_cfunc(vm_cc_cme(cc), func);
 }
+
+#define check_cfunc(me, func) check_cfunc(me, make_cfunc_type(func))
+#define vm_method_cfunc_is(iseq, cd, recv, func) vm_method_cfunc_is(iseq, cd, recv, make_cfunc_type(func))
 
 #define EQ_UNREDEFINED_P(t) BASIC_OP_UNREDEFINED_P(BOP_EQ, t##_REDEFINED_OP_FLAG)
 
@@ -3018,7 +3023,8 @@ vm_call_single_noarg_leaf_builtin(rb_execution_context_t *ec, rb_control_frame_t
 {
     const struct rb_builtin_function *bf = calling->cc->aux_.bf;
     cfp->sp -= (calling->argc + 1);
-    return builtin_invoker0(ec, calling->recv, NULL, (rb_insn_func_t)bf->func_ptr);
+    rb_insn_func_t func_ptr = (rb_insn_func_t)(uintptr_t)bf->func_ptr;
+    return builtin_invoker0(ec, calling->recv, NULL, func_ptr);
 }
 
 VALUE rb_gen_method_name(VALUE owner, VALUE name); // in vm_backtrace.c
@@ -7320,7 +7326,8 @@ invoke_bf(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp, const struct 
 {
     const bool canary_p = ISEQ_BODY(reg_cfp->iseq)->builtin_attrs & BUILTIN_ATTR_LEAF; // Verify an assumption of `Primitive.attr! :leaf`
     SETUP_CANARY(canary_p);
-    VALUE ret = (*lookup_builtin_invoker(bf->argc))(ec, reg_cfp->self, argv, (rb_insn_func_t)bf->func_ptr);
+    rb_insn_func_t func_ptr = (rb_insn_func_t)(uintptr_t)bf->func_ptr;
+    VALUE ret = (*lookup_builtin_invoker(bf->argc))(ec, reg_cfp->self, argv, func_ptr);
     CHECK_CANARY(canary_p, BIN(invokebuiltin));
     return ret;
 }
@@ -7339,7 +7346,8 @@ vm_invoke_builtin_delegate(rb_execution_context_t *ec, rb_control_frame_t *cfp, 
         for (int i=0; i<bf->argc; i++) {
             ruby_debug_printf(":%s ", rb_id2name(ISEQ_BODY(cfp->iseq)->local_table[i+start_index]));
         }
-        ruby_debug_printf("\n" "%s %s(%d):%p\n", RUBY_FUNCTION_NAME_STRING, bf->name, bf->argc, bf->func_ptr);
+        ruby_debug_printf("\n" "%s %s(%d):%p\n", RUBY_FUNCTION_NAME_STRING, bf->name, bf->argc,
+                          (void *)(uintptr_t)bf->func_ptr);
     }
 
     if (bf->argc == 0) {

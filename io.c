@@ -104,6 +104,16 @@
 
 #ifdef HAVE_COPYFILE_H
 # include <copyfile.h>
+
+# ifndef COPYFILE_STATE_COPIED
+/*
+ * Some OSes (e.g., OSX < 10.6) implement fcopyfile() but not
+ * COPYFILE_STATE_COPIED.  Since the only use of the former here
+ * requires the latter, we disable the former when the latter is undefined.
+ */
+#   undef HAVE_FCOPYFILE
+# endif
+
 #endif
 
 #include "ruby/internal/stdbool.h"
@@ -211,6 +221,17 @@ static VALUE sym_HOLE;
 #endif
 
 static VALUE prep_io(int fd, int fmode, VALUE klass, const char *path);
+
+VALUE
+rb_io_blocking_region_wait(struct rb_io *io, rb_blocking_function_t *function, void *argument, enum rb_io_event events)
+{
+    return rb_thread_io_blocking_call(function, argument, io->fd, events);
+}
+
+VALUE rb_io_blocking_region(struct rb_io *io, rb_blocking_function_t *function, void *argument)
+{
+    return rb_io_blocking_region_wait(io, function, argument, 0);
+}
 
 struct argf {
     VALUE filename, current_file;
@@ -1288,7 +1309,7 @@ rb_io_read_memory(rb_io_t *fptr, void *buf, size_t count)
         iis.timeout = &timeout_storage;
     }
 
-    return (ssize_t)rb_thread_io_blocking_call(internal_read_func, &iis, fptr->fd, RB_WAITFD_IN);
+    return (ssize_t)rb_io_blocking_region_wait(fptr, internal_read_func, &iis, RUBY_IO_READABLE);
 }
 
 static ssize_t
@@ -1321,7 +1342,7 @@ rb_io_write_memory(rb_io_t *fptr, const void *buf, size_t count)
         iis.timeout = &timeout_storage;
     }
 
-    return (ssize_t)rb_thread_io_blocking_call(internal_write_func, &iis, fptr->fd, RB_WAITFD_OUT);
+    return (ssize_t)rb_io_blocking_region_wait(fptr, internal_write_func, &iis, RUBY_IO_WRITABLE);
 }
 
 #ifdef HAVE_WRITEV
@@ -1358,7 +1379,7 @@ rb_writev_internal(rb_io_t *fptr, const struct iovec *iov, int iovcnt)
         iis.timeout = &timeout_storage;
     }
 
-    return (ssize_t)rb_thread_io_blocking_call(internal_writev_func, &iis, fptr->fd, RB_WAITFD_OUT);
+    return (ssize_t)rb_io_blocking_region_wait(fptr, internal_writev_func, &iis, RUBY_IO_WRITABLE);
 }
 #endif
 
@@ -1388,7 +1409,7 @@ static VALUE
 io_flush_buffer_async(VALUE arg)
 {
     rb_io_t *fptr = (rb_io_t *)arg;
-    return rb_thread_io_blocking_call(io_flush_buffer_sync, fptr, fptr->fd, RB_WAITFD_OUT);
+    return rb_io_blocking_region_wait(fptr, io_flush_buffer_sync, fptr, RUBY_IO_WRITABLE);
 }
 
 static inline int
@@ -1613,7 +1634,7 @@ rb_io_maybe_wait(int error, VALUE io, VALUE events, VALUE timeout)
 
       default:
         // Non-specific error, no event is ready:
-        return Qfalse;
+        return Qnil;
     }
 }
 
@@ -1625,9 +1646,11 @@ rb_io_maybe_wait_readable(int error, VALUE io, VALUE timeout)
     if (RTEST(result)) {
         return RB_NUM2INT(result);
     }
-    else {
-        return 0;
+    else if (result == RUBY_Qfalse) {
+        rb_raise(rb_eIOTimeoutError, "Timed out waiting for IO to become readable!");
     }
+
+    return 0;
 }
 
 int
@@ -1638,9 +1661,11 @@ rb_io_maybe_wait_writable(int error, VALUE io, VALUE timeout)
     if (RTEST(result)) {
         return RB_NUM2INT(result);
     }
-    else {
-        return 0;
+    else if (result == RUBY_Qfalse) {
+        rb_raise(rb_eIOTimeoutError, "Timed out waiting for IO to become writable!");
     }
+
+    return 0;
 }
 
 static void
@@ -2774,8 +2799,10 @@ rb_io_fsync(VALUE io)
 
     if (io_fflush(fptr) < 0)
         rb_sys_fail_on_write(fptr);
-    if ((int)rb_thread_io_blocking_region(nogvl_fsync, fptr, fptr->fd) < 0)
+
+    if ((int)rb_io_blocking_region(fptr, nogvl_fsync, fptr))
         rb_sys_fail_path(fptr->pathv);
+
     return INT2FIX(0);
 }
 #else
@@ -2824,7 +2851,7 @@ rb_io_fdatasync(VALUE io)
     if (io_fflush(fptr) < 0)
         rb_sys_fail_on_write(fptr);
 
-    if ((int)rb_thread_io_blocking_region(nogvl_fdatasync, fptr, fptr->fd) == 0)
+    if ((int)rb_io_blocking_region(fptr, nogvl_fdatasync, fptr) == 0)
         return INT2FIX(0);
 
     /* fall back */
@@ -3409,10 +3436,10 @@ io_read_memory_call(VALUE arg)
     }
 
     if (iis->nonblock) {
-        return rb_thread_io_blocking_call(internal_read_func, iis, iis->fptr->fd, 0);
+        return rb_io_blocking_region(iis->fptr, internal_read_func, iis);
     }
     else {
-        return rb_thread_io_blocking_call(internal_read_func, iis, iis->fptr->fd, RB_WAITFD_IN);
+        return rb_io_blocking_region_wait(iis->fptr, internal_read_func, iis, RUBY_IO_READABLE);
     }
 }
 
@@ -4369,23 +4396,31 @@ rb_io_set_lineno(VALUE io, VALUE lineno)
 static VALUE
 io_readline(rb_execution_context_t *ec, VALUE io, VALUE sep, VALUE lim, VALUE chomp)
 {
+    long limit = -1;
     if (NIL_P(lim)) {
+        VALUE tmp = Qnil;
         // If sep is specified, but it's not a string and not nil, then assume
         // it's the limit (it should be an integer)
-        if (!NIL_P(sep) && NIL_P(rb_check_string_type(sep))) {
+        if (!NIL_P(sep) && NIL_P(tmp = rb_check_string_type(sep))) {
             // If the user has specified a non-nil / non-string value
             // for the separator, we assume it's the limit and set the
             // separator to default: rb_rs.
             lim = sep;
+            limit = NUM2LONG(lim);
             sep = rb_rs;
         }
+        else {
+            sep = tmp;
+        }
+    }
+    else {
+        if (!NIL_P(sep)) StringValue(sep);
+        limit = NUM2LONG(lim);
     }
 
-    if (!NIL_P(sep)) {
-        StringValue(sep);
-    }
+    check_getline_args(&sep, &limit, io);
 
-    VALUE line = rb_io_getline_1(sep, NIL_P(lim) ? -1L : NUM2LONG(lim), RTEST(chomp), io);
+    VALUE line = rb_io_getline_1(sep, limit, RTEST(chomp), io);
     rb_lastline_set_up(line, 1);
 
     if (NIL_P(line)) {
@@ -6085,7 +6120,7 @@ rb_io_sysread(int argc, VALUE *argv, VALUE io)
 }
 
 struct prdwr_internal_arg {
-    VALUE io;
+    struct rb_io *io;
     int fd;
     void *buf;
     size_t count;
@@ -6107,14 +6142,14 @@ pread_internal_call(VALUE _arg)
 
     VALUE scheduler = rb_fiber_scheduler_current();
     if (scheduler != Qnil) {
-        VALUE result = rb_fiber_scheduler_io_pread_memory(scheduler, arg->io, arg->offset, arg->buf, arg->count, 0);
+        VALUE result = rb_fiber_scheduler_io_pread_memory(scheduler, arg->io->self, arg->offset, arg->buf, arg->count, 0);
 
         if (!UNDEF_P(result)) {
             return rb_fiber_scheduler_io_result_apply(result);
         }
     }
 
-    return rb_thread_io_blocking_call(internal_pread_func, arg, arg->fd, RB_WAITFD_IN);
+    return rb_io_blocking_region_wait(arg->io, internal_pread_func, arg, RUBY_IO_READABLE);
 }
 
 /*
@@ -6151,7 +6186,7 @@ rb_io_pread(int argc, VALUE *argv, VALUE io)
     VALUE len, offset, str;
     rb_io_t *fptr;
     ssize_t n;
-    struct prdwr_internal_arg arg = {.io = io};
+    struct prdwr_internal_arg arg;
     int shrinkable;
 
     rb_scan_args(argc, argv, "21", &len, &offset, &str);
@@ -6165,6 +6200,7 @@ rb_io_pread(int argc, VALUE *argv, VALUE io)
     GetOpenFile(io, fptr);
     rb_io_check_byte_readable(fptr);
 
+    arg.io = fptr;
     arg.fd = fptr->fd;
     rb_io_check_closed(fptr);
 
@@ -6189,7 +6225,7 @@ internal_pwrite_func(void *_arg)
 
     VALUE scheduler = rb_fiber_scheduler_current();
     if (scheduler != Qnil) {
-        VALUE result = rb_fiber_scheduler_io_pwrite_memory(scheduler, arg->io, arg->offset, arg->buf, arg->count, 0);
+        VALUE result = rb_fiber_scheduler_io_pwrite_memory(scheduler, arg->io->self, arg->offset, arg->buf, arg->count, 0);
 
         if (!UNDEF_P(result)) {
             return rb_fiber_scheduler_io_result_apply(result);
@@ -6230,7 +6266,7 @@ rb_io_pwrite(VALUE io, VALUE str, VALUE offset)
 {
     rb_io_t *fptr;
     ssize_t n;
-    struct prdwr_internal_arg arg = {.io = io};
+    struct prdwr_internal_arg arg;
     VALUE tmp;
 
     if (!RB_TYPE_P(str, T_STRING))
@@ -6241,13 +6277,15 @@ rb_io_pwrite(VALUE io, VALUE str, VALUE offset)
     io = GetWriteIO(io);
     GetOpenFile(io, fptr);
     rb_io_check_writable(fptr);
+
+    arg.io = fptr;
     arg.fd = fptr->fd;
 
     tmp = rb_str_tmp_frozen_acquire(str);
     arg.buf = RSTRING_PTR(tmp);
     arg.count = (size_t)RSTRING_LEN(tmp);
 
-    n = (ssize_t)rb_thread_io_blocking_call(internal_pwrite_func, &arg, fptr->fd, RB_WAITFD_OUT);
+    n = (ssize_t)rb_io_blocking_region_wait(fptr, internal_pwrite_func, &arg, RUBY_IO_WRITABLE);
     if (n < 0) rb_sys_fail_path(fptr->pathv);
     rb_str_tmp_frozen_release(str, tmp);
 
@@ -10792,7 +10830,7 @@ do_io_advise(rb_io_t *fptr, VALUE advice, rb_off_t offset, rb_off_t len)
     ias.offset = offset;
     ias.len    = len;
 
-    rv = (int)rb_thread_io_blocking_region(io_advise_internal, &ias, fptr->fd);
+    rv = (int)rb_io_blocking_region(fptr, io_advise_internal, &ias);
     if (rv && rv != ENOSYS) {
         /* posix_fadvise(2) doesn't set errno. On success it returns 0; otherwise
            it returns the error code. */
@@ -11085,16 +11123,16 @@ nogvl_ioctl(void *ptr)
 }
 
 static int
-do_ioctl(int fd, ioctl_req_t cmd, long narg)
+do_ioctl(struct rb_io *io, ioctl_req_t cmd, long narg)
 {
     int retval;
     struct ioctl_arg arg;
 
-    arg.fd = fd;
+    arg.fd = io->fd;
     arg.cmd = cmd;
     arg.narg = narg;
 
-    retval = (int)rb_thread_io_blocking_region(nogvl_ioctl, &arg, fd);
+    retval = (int)rb_io_blocking_region(io, nogvl_ioctl, &arg);
 
     return retval;
 }
@@ -11357,7 +11395,7 @@ rb_ioctl(VALUE io, VALUE req, VALUE arg)
 
     narg = setup_narg(cmd, &arg, ioctl_narg_len);
     GetOpenFile(io, fptr);
-    retval = do_ioctl(fptr->fd, cmd, narg);
+    retval = do_ioctl(fptr, cmd, narg);
     return finish_narg(retval, arg, fptr);
 }
 
@@ -11411,16 +11449,16 @@ nogvl_fcntl(void *ptr)
 }
 
 static int
-do_fcntl(int fd, int cmd, long narg)
+do_fcntl(struct rb_io *io, int cmd, long narg)
 {
     int retval;
     struct fcntl_arg arg;
 
-    arg.fd = fd;
+    arg.fd = io->fd;
     arg.cmd = cmd;
     arg.narg = narg;
 
-    retval = (int)rb_thread_io_blocking_region(nogvl_fcntl, &arg, fd);
+    retval = (int)rb_io_blocking_region(io, nogvl_fcntl, &arg);
     if (retval != -1) {
         switch (cmd) {
 #if defined(F_DUPFD)
@@ -11446,7 +11484,7 @@ rb_fcntl(VALUE io, VALUE req, VALUE arg)
 
     narg = setup_narg(cmd, &arg, fcntl_narg_len);
     GetOpenFile(io, fptr);
-    retval = do_fcntl(fptr->fd, cmd, narg);
+    retval = do_fcntl(fptr, cmd, narg);
     return finish_narg(retval, arg, fptr);
 }
 

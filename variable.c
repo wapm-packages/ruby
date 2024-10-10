@@ -97,6 +97,8 @@ rb_namespace_p(VALUE obj)
  * to not be anonymous. <code>*permanent</code> is set to 1
  * if +classpath+ has no anonymous components. There is no builtin
  * Ruby level APIs that can change a permanent +classpath+.
+ *
+ * YJIT needs this function to not allocate.
  */
 static VALUE
 classname(VALUE klass, bool *permanent)
@@ -127,6 +129,7 @@ rb_mod_name0(VALUE klass, bool *permanent)
 VALUE
 rb_mod_name(VALUE mod)
 {
+    // YJIT needs this function to not allocate.
     bool permanent;
     return classname(mod, &permanent);
 }
@@ -1107,9 +1110,9 @@ gen_ivtbl_resize(struct gen_ivtbl *old, uint32_t n)
 void
 rb_mark_generic_ivar(VALUE obj)
 {
-    struct gen_ivtbl *ivtbl;
-
-    if (rb_gen_ivtbl_get(obj, 0, &ivtbl)) {
+    st_data_t data;
+    if (st_lookup(generic_ivtbl_no_ractor_check(obj), (st_data_t)obj, &data)) {
+        struct gen_ivtbl *ivtbl = (struct gen_ivtbl *)data;
         if (rb_shape_obj_too_complex(obj)) {
             rb_mark_tbl_no_pin(ivtbl->as.complex.table);
         }

@@ -1771,6 +1771,8 @@ pm_eval_make_iseq(VALUE src, VALUE fname, int line,
     pm_scope_node_t *prev = result.node.previous;
     while (prev) {
         pm_scope_node_t *next = prev->previous;
+        pm_constant_id_list_free(&prev->locals);
+        pm_scope_node_destroy(prev);
         ruby_xfree(prev);
         prev = next;
     }
@@ -1785,7 +1787,7 @@ static const rb_iseq_t *
 eval_make_iseq(VALUE src, VALUE fname, int line,
                const struct rb_block *base_block)
 {
-    if (*rb_ruby_prism_ptr()) {
+    if (rb_ruby_prism_p()) {
         return pm_eval_make_iseq(src, fname, line, base_block);
     }
     const VALUE parser = rb_parser_new();

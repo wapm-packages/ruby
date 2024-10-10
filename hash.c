@@ -64,7 +64,7 @@
  *            The bounds of the AR table.
  * 13-19: RHASH_LEV_MASK
  *            The iterational level of the hash. Used to prevent modifications
- *            to the hash during interation.
+ *            to the hash during iteration.
  */
 
 #ifndef HASH_DEBUG
@@ -3405,20 +3405,65 @@ rb_hash_to_a(VALUE hash)
     return ary;
 }
 
+static bool
+symbol_key_needs_quote(VALUE str)
+{
+    long len = RSTRING_LEN(str);
+    if (len == 0 || !rb_str_symname_p(str)) return true;
+    const char *s = RSTRING_PTR(str);
+    char first = s[0];
+    if (first == '@' || first == '$' || first == '!') return true;
+    if (!at_char_boundary(s, s + len - 1, RSTRING_END(str), rb_enc_get(str))) return false;
+    switch (s[len - 1]) {
+        case '+':
+        case '-':
+        case '*':
+        case '/':
+        case '`':
+        case '%':
+        case '^':
+        case '&':
+        case '|':
+        case ']':
+        case '<':
+        case '=':
+        case '>':
+        case '~':
+        case '@':
+            return true;
+        default:
+            return false;
+    }
+}
+
 static int
 inspect_i(VALUE key, VALUE value, VALUE str)
 {
     VALUE str2;
 
-    str2 = rb_inspect(key);
+    bool is_symbol = SYMBOL_P(key);
+    bool quote = false;
+    if (is_symbol) {
+        str2 = rb_sym2str(key);
+        quote = symbol_key_needs_quote(str2);
+    }
+    else {
+        str2 = rb_inspect(key);
+    }
     if (RSTRING_LEN(str) > 1) {
         rb_str_buf_cat_ascii(str, ", ");
     }
     else {
         rb_enc_copy(str, str2);
     }
-    rb_str_buf_append(str, str2);
-    rb_str_buf_cat_ascii(str, "=>");
+    if (quote) {
+        rb_str_buf_append(str, rb_str_inspect(str2));
+    }
+    else {
+        rb_str_buf_append(str, str2);
+    }
+
+    rb_str_buf_cat_ascii(str, is_symbol ? ": " : " => ");
     str2 = rb_inspect(value);
     rb_str_buf_append(str, str2);
 
@@ -5053,44 +5098,6 @@ envix(const char *nam)
 }
 #endif
 
-#if defined(_WIN32)
-static size_t
-getenvsize(const WCHAR* p)
-{
-    const WCHAR* porg = p;
-    while (*p++) p += lstrlenW(p) + 1;
-    return p - porg + 1;
-}
-
-static size_t
-getenvblocksize(void)
-{
-#ifdef _MAX_ENV
-    return _MAX_ENV;
-#else
-    return 32767;
-#endif
-}
-
-static int
-check_envsize(size_t n)
-{
-    if (_WIN32_WINNT < 0x0600 && rb_w32_osver() < 6) {
-        /* https://msdn.microsoft.com/en-us/library/windows/desktop/ms682653(v=vs.85).aspx */
-        /* Windows Server 2003 and Windows XP: The maximum size of the
-         * environment block for the process is 32,767 characters. */
-        WCHAR* p = GetEnvironmentStringsW();
-        if (!p) return -1; /* never happen */
-        n += getenvsize(p);
-        FreeEnvironmentStringsW(p);
-        if (n >= getenvblocksize()) {
-            return -1;
-        }
-    }
-    return 0;
-}
-#endif
-
 #if defined(_WIN32) || \
   (defined(__sun) && !(defined(HAVE_SETENV) && defined(HAVE_UNSETENV)))
 
@@ -5116,9 +5123,6 @@ void
 ruby_setenv(const char *name, const char *value)
 {
 #if defined(_WIN32)
-# if defined(MINGW_HAS_SECURE_API) || RUBY_MSVCRT_VERSION >= 80
-#   define HAVE__WPUTENV_S 1
-# endif
     VALUE buf;
     WCHAR *wname;
     WCHAR *wvalue = 0;
@@ -5129,34 +5133,23 @@ ruby_setenv(const char *name, const char *value)
     if (value) {
         int len2;
         len2 = MultiByteToWideChar(CP_UTF8, 0, value, -1, NULL, 0);
-        if (check_envsize((size_t)len + len2)) { /* len and len2 include '\0' */
-            goto fail;  /* 2 for '=' & '\0' */
-        }
         wname = ALLOCV_N(WCHAR, buf, len + len2);
         wvalue = wname + len;
         MultiByteToWideChar(CP_UTF8, 0, name, -1, wname, len);
         MultiByteToWideChar(CP_UTF8, 0, value, -1, wvalue, len2);
-#ifndef HAVE__WPUTENV_S
-        wname[len-1] = L'=';
-#endif
     }
     else {
         wname = ALLOCV_N(WCHAR, buf, len + 1);
         MultiByteToWideChar(CP_UTF8, 0, name, -1, wname, len);
         wvalue = wname + len;
         *wvalue = L'\0';
-#ifndef HAVE__WPUTENV_S
-        wname[len-1] = L'=';
-#endif
     }
 
     ENV_LOCK();
     {
-#ifndef HAVE__WPUTENV_S
-        failed = _wputenv(wname);
-#else
+        /* Use _wputenv_s() instead of SetEnvironmentVariableW() to make sure
+         * special variables like "TZ" are interpret by libc. */
         failed = _wputenv_s(wname, wvalue);
-#endif
     }
     ENV_UNLOCK();
 
@@ -5165,7 +5158,7 @@ ruby_setenv(const char *name, const char *value)
      * variable from the system area. */
     if (!value || !*value) {
         /* putenv() doesn't handle empty value */
-        if (!SetEnvironmentVariable(name, value) &&
+        if (!SetEnvironmentVariableW(wname, value ? wvalue : NULL) &&
             GetLastError() != ERROR_ENVVAR_NOT_FOUND) goto fail;
     }
     if (failed) {
@@ -6844,7 +6837,7 @@ static const rb_data_type_t env_data_type = {
  *
  *  ==== User-Defined +Hash+ Keys
  *
- *  To be useable as a +Hash+ key, objects must implement the methods <code>hash</code> and <code>eql?</code>.
+ *  To be usable as a +Hash+ key, objects must implement the methods <code>hash</code> and <code>eql?</code>.
  *  Note: this requirement does not apply if the +Hash+ uses #compare_by_identity since comparison will then
  *  rely on the keys' object id instead of <code>hash</code> and <code>eql?</code>.
  *

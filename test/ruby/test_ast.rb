@@ -803,7 +803,7 @@ dummy
       "puts RubyVM::AbstractSyntaxTree.of(->{ 1 + 2 }, keep_script_lines: true).script_lines",
       "p SCRIPT_LINES__"
     ]
-    test_stdout = lines + ['{"-e"=>[]}']
+    test_stdout = lines + ['{"-e" => []}']
     assert_in_out_err(["-e", lines.join("\n")], "", test_stdout, [])
   end
 
@@ -1348,6 +1348,14 @@ dummy
       assert_locations(node.children[-1].locations, [[1, 0, 1, 6], [1, 2, 1, 4]])
     end
 
+    def test_block_pass_locations
+      node = ast_parse("foo(&bar)")
+      assert_locations(node.children[-1].children[-1].locations, [[1, 4, 1, 8], [1, 4, 1, 5]])
+
+      node = ast_parse("def a(&); b(&) end")
+      assert_locations(node.children[-1].children[-1].children[-1].children[-1].children[-1].locations, [[1, 12, 1, 13], [1, 12, 1, 13]])
+    end
+
     def test_break_locations
       node = ast_parse("loop { break 1 }")
       assert_locations(node.children[-1].children[-1].children[-1].locations, [[1, 7, 1, 14], [1, 7, 1, 12]])
@@ -1373,6 +1381,14 @@ dummy
       assert_locations(node.children[-1].children[-1].children[-1].locations, [[1, 7, 1, 13], [1, 7, 1, 11]])
     end
 
+    def test_op_asgn1_locations
+      node = ast_parse("ary[1] += foo")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 13], nil, [1, 3, 1, 4], [1, 5, 1, 6], [1, 7, 1, 9]])
+
+      node = ast_parse("ary[1, 2] += foo")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 16], nil, [1, 3, 1, 4], [1, 8, 1, 9], [1, 10, 1, 12]])
+    end
+
     def test_or_locations
       node = ast_parse("1 or 2")
       assert_locations(node.children[-1].locations, [[1, 0, 1, 6], [1, 2, 1, 4]])
@@ -1381,9 +1397,45 @@ dummy
       assert_locations(node.children[-1].locations, [[1, 0, 1, 6], [1, 2, 1, 4]])
     end
 
+    def test_op_asgn2_locations
+      node = ast_parse("a.b += 1")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 8], [1, 1, 1, 2], [1, 2, 1, 3], [1, 4, 1, 6]])
+
+      node = ast_parse("A::B.c += d")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 11], [1, 4, 1, 5], [1, 5, 1, 6], [1, 7, 1, 9]])
+
+      node = ast_parse("a = b.c += d")
+      assert_locations(node.children[-1].children[-1].locations, [[1, 4, 1, 12], [1, 5, 1, 6], [1, 6, 1, 7], [1, 8, 1, 10]])
+
+      node = ast_parse("a = A::B.c += d")
+      assert_locations(node.children[-1].children[-1].locations, [[1, 4, 1, 15], [1, 8, 1, 9], [1, 9, 1, 10], [1, 11, 1, 13]])
+    end
+
     def test_redo_locations
       node = ast_parse("loop { redo }")
       assert_locations(node.children[-1].children[-1].children[-1].locations, [[1, 7, 1, 11], [1, 7, 1, 11]])
+    end
+
+    def test_return_locations
+      node = ast_parse("return 1")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 8], [1, 0, 1, 6]])
+
+      node = ast_parse("return")
+      assert_locations(node.children[-1].locations, [[1, 0, 1, 6], [1, 0, 1, 6]])
+    end
+
+    def test_splat_locations
+      node = ast_parse("a = *1")
+      assert_locations(node.children[-1].children[1].locations, [[1, 4, 1, 6], [1, 4, 1, 5]])
+
+      node = ast_parse("a = *1, 2")
+      assert_locations(node.children[-1].children[1].children[0].locations, [[1, 4, 1, 6], [1, 4, 1, 5]])
+
+      node = ast_parse("case a; when *1; end")
+      assert_locations(node.children[-1].children[1].children[0].locations, [[1, 13, 1, 15], [1, 13, 1, 14]])
+
+      node = ast_parse("case a; when *1, 2; end")
+      assert_locations(node.children[-1].children[1].children[0].children[0].locations, [[1, 13, 1, 15], [1, 13, 1, 14]])
     end
 
     def test_unless_locations

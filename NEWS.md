@@ -25,7 +25,7 @@ Note that each entry is kept to a minimum, see links for details.
 * Keyword arguments are no longer allowed in index assignment
   (e.g. `a[0, kw: 1] = 2`).  [[Bug #20218]]
 
-* `GC.config` added to allow setting configuration variables on the Garbage
+* GC.config added to allow setting configuration variables on the Garbage
   Collector. [[Feature #20443]]
 
 * GC configuration parameter `rgengc_allow_full_mark` introduced. When `false`
@@ -37,34 +37,43 @@ Note: We're only listing outstanding class updates.
 
 * Exception
 
-  * Exception#set_backtrace now accepts arrays of `Thread::Backtrace::Location`.
-    `Kernel#raise`, `Thread#raise` and `Fiber#raise` also accept this new format. [[Feature #13557]]
+    * Exception#set_backtrace now accepts arrays of Thread::Backtrace::Location.
+      Kernel#raise, Thread#raise and Fiber#raise also accept this new format. [[Feature #13557]]
 
 * Range
 
-  * Range#size now raises TypeError if the range is not iterable. [[Misc #18984]]
-  * Range#step now consistently has a semantics of iterating by using `+` operator
-    for all types, not only numerics. [[Feature #18368]]
+    * Range#size now raises TypeError if the range is not iterable. [[Misc #18984]]
+    * Range#step now consistently has a semantics of iterating by using `+` operator
+      for all types, not only numerics. [[Feature #18368]]
 
-    ```ruby
-    (Time.utc(2022, 2, 24)..).step(24*60*60).take(3)
-    #=> [2022-02-24 00:00:00 UTC, 2022-02-25 00:00:00 UTC, 2022-02-26 00:00:00 UTC]
-    ```
+        ```ruby
+        (Time.utc(2022, 2, 24)..).step(24*60*60).take(3)
+        #=> [2022-02-24 00:00:00 UTC, 2022-02-25 00:00:00 UTC, 2022-02-26 00:00:00 UTC]
+        ```
 
 * RubyVM::AbstractSyntaxTree
 
-  * Add `RubyVM::AbstractSyntaxTree::Node#locations` method which returns location objects
-    associated with the AST node. [[Feature #20624]]
-  * Add `RubyVM::AbstractSyntaxTree::Location` class which holds location information. [[Feature #20624]]
+    * Add RubyVM::AbstractSyntaxTree::Node#locations method which returns location objects
+      associated with the AST node. [[Feature #20624]]
+    * Add RubyVM::AbstractSyntaxTree::Location class which holds location information. [[Feature #20624]]
 
 ## Stdlib updates
 
+The following default gem is added.
+
+* win32-registry 0.0.1
+
 * Tempfile
 
-    * The keyword argument `anonymous: true` is implemented for `Tempfile.create`.
+    * The keyword argument `anonymous: true` is implemented for Tempfile.create.
       `Tempfile.create(anonymous: true)` removes the created temporary file immediately.
       So applications don't need to remove the file.
       [[Feature #20497]]
+
+* win32/sspi.rb
+
+    * This library is now extracted from the Ruby repository to [ruby/net-http-sspi].
+      [[Feature #20775]]
 
 The following default gems are updated.
 
@@ -73,7 +82,7 @@ The following default gems are updated.
 * erb 4.0.4
 * fiddle 1.1.3.dev
 * io-console 0.7.2
-* irb 1.14.0
+* irb 1.14.1
 * json 2.7.2
 * logger 1.6.1
 * net-http 0.4.1
@@ -92,14 +101,15 @@ The following default gems are updated.
 The following bundled gems are updated.
 
 * minitest 5.25.1
+* power_assert 2.0.4
 * rake 13.2.1
 * test-unit 3.6.2
-* rexml 3.3.7
+* rexml 3.3.8
 * rss 0.3.1
-* net-ftp 0.3.7
+* net-ftp 0.3.8
 * net-imap 0.4.16
 * net-smtp 0.5.0
-* rbs 3.5.3
+* rbs 3.6.1
 * typeprof 0.21.11
 * debug 1.9.2
 * racc 1.8.1
@@ -119,25 +129,42 @@ The following bundled gems are promoted from default gems.
 * syslog 0.1.2
 * csv 3.3.0
 
-See GitHub releases like [GitHub Releases of Logger](https://github.com/ruby/logger/releases) or changelog for details of the default gems or bundled gems.
+The following bundled gem is added.
+
+* repl_type_completor 0.1.7
+
+See GitHub releases like [GitHub Releases of Logger] or changelog for
+details of the default gems or bundled gems.
+
+[ruby/net-http-sspi]: https://github.com/ruby/net-http-sspi
+[GitHub Releases of Logger]: https://github.com/ruby/logger/releases
 
 ## Supported platforms
 
 ## Compatibility issues
 
 * Error messages and backtrace displays have been changed.
-  * Use a single quote instead of a backtick as a opening quote. [[Feature #16495]]
-  * Display a class name before a method name (only when the class has a permanent name). [[Feature #19117]]
-  * `Kernel#caller`, `Thread::Backtrace::Location`'s methods, etc. are also changed accordingly.
-  ```
-  Old:
-  test.rb:1:in `foo': undefined method `time' for an instance of Integer
-          from test.rb:2:in `<main>'
 
-  New:
-  test.rb:1:in 'Object#foo': undefined method 'time' for an instance of Integer
-          from test.rb:2:in `<main>'
-  ```
+    * Use a single quote instead of a backtick as an opening quote. [[Feature #16495]]
+    * Display a class name before a method name (only when the class has a permanent name). [[Feature #19117]]
+    * Kernel#caller, Thread::Backtrace::Location’s methods, etc. are also changed accordingly.
+
+        Old:
+        ```
+        test.rb:1:in `foo': undefined method `time' for an instance of Integer
+                from test.rb:2:in `<main>'
+        ```
+
+        New:
+        ```
+        test.rb:1:in 'Object#foo': undefined method 'time' for an instance of Integer
+                from test.rb:2:in '<main>'
+        ```
+
+* Hash#inspect rendering have been changed. [[Bug #20433]]
+
+    * Symbol keys are displayed using the modern symbol key syntax: `"{user: 1}"`
+    * Other keys now have spaces around `=>`: `'{"user" => 1}'`, while previously they didn't: `'{"user"=>1}'`
 
 ## Stdlib compatibility issues
 
@@ -148,7 +175,7 @@ See GitHub releases like [GitHub Releases of Logger](https://github.com/ruby/log
 
 ## Implementation improvements
 
-* `Array#each` is rewritten in Ruby for better performance [[Feature #20182]].
+* Array#each is rewritten in Ruby for better performance [[Feature #20182]].
 
 ## JIT
 
@@ -159,7 +186,7 @@ See GitHub releases like [GitHub Releases of Logger](https://github.com/ruby/log
   [[Feature #15554]]
 
 * Redefining some core methods that are specially optimized by the interpreter
-  and JIT like `String.freeze` or `Integer#+` now emits a performance class
+  and JIT like String#freeze or Integer#+ now emits a performance class
   warning (`-W:performance` or `Warning[:performance] = true`).
   [[Feature #20429]]
 
@@ -178,6 +205,8 @@ See GitHub releases like [GitHub Releases of Logger](https://github.com/ruby/log
 [Bug #20218]:     https://bugs.ruby-lang.org/issues/20218
 [Feature #20265]: https://bugs.ruby-lang.org/issues/20265
 [Feature #20429]: https://bugs.ruby-lang.org/issues/20429
+[Bug #20433]:     https://bugs.ruby-lang.org/issues/20433
 [Feature #20443]: https://bugs.ruby-lang.org/issues/20443
 [Feature #20497]: https://bugs.ruby-lang.org/issues/20497
 [Feature #20624]: https://bugs.ruby-lang.org/issues/20624
+[Feature #20775]: https://bugs.ruby-lang.org/issues/20775

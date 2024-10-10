@@ -191,7 +191,7 @@ module Bundler
         set_up_app_cache!(app_cache_path) if use_app_cache?
 
         if requires_checkout? && !@copied
-          FileUtils.rm_rf(app_cache_path) if use_app_cache? && git_proxy.not_a_bare_repository?
+          FileUtils.rm_rf(app_cache_path) if use_app_cache? && git_proxy.not_a_repository?
 
           fetch
           checkout
@@ -210,7 +210,7 @@ module Bundler
           checkout
         end
 
-        generate_bin_options = { disable_extensions: !Bundler.rubygems.spec_missing_extensions?(spec), build_args: options[:build_args] }
+        generate_bin_options = { disable_extensions: !spec.missing_extensions?, build_args: options[:build_args] }
         generate_bin(spec, generate_bin_options)
 
         requires_checkout? ? spec.post_install_message : nil

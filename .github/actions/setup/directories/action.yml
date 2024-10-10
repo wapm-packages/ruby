@@ -88,12 +88,12 @@ runs:
         git config --global init.defaultBranch garbage
 
     - if: inputs.checkout
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
       with:
         path: ${{ inputs.srcdir }}
         fetch-depth: ${{ inputs.fetch-depth }}
 
-    - uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+    - uses: actions/cache@3624ceb22c1c5a301c8db4169662070a689d9ea8 # v4.1.1
       with:
         path: ${{ inputs.srcdir }}/.downloaded-cache
         key: downloaded-cache
@@ -101,7 +101,7 @@ runs:
     - if: steps.which.outputs.autoreconf
       shell: bash
       working-directory: ${{ inputs.srcdir }}
-      run: ./autogen.sh
+      run: ./autogen.sh --install
 
     # This is for MinGW.
     - if: runner.os == 'Windows'
@@ -138,7 +138,9 @@ runs:
       run: |
         sudo chmod -R go-w /usr/share
         chmod -v go-w $HOME $HOME/.config || :
-        sudo bash -c 'IFS=:; for d in '"$PATH"'; do chmod -v go-w $d; done' || :
+        SAVE_IFS="$IFS" IFS=:; set $PATH; dirs=() IFS="$SAVE_IFS"
+        for d do [ ! -d "$d" ] || dirs+=("$d"); done
+        sudo chmod -v go-w "${dirs[@]}" || :
 
     - if: inputs.dummy-files == 'true'
       shell: bash

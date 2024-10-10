@@ -2647,11 +2647,11 @@ time_init_parse(rb_execution_context_t *ec, VALUE time, VALUE str, VALUE zone, V
     }
     if (!NIL_P(subsec)) {
         /* subseconds is the last using ndigits */
-        if (ndigits < TIME_SCALE_NUMDIGITS) {
+        if (ndigits < (size_t)TIME_SCALE_NUMDIGITS) {
             VALUE mul = rb_int_positive_pow(10, TIME_SCALE_NUMDIGITS - ndigits);
             subsec = rb_int_mul(subsec, mul);
         }
-        else if (ndigits > TIME_SCALE_NUMDIGITS) {
+        else if (ndigits > (size_t)TIME_SCALE_NUMDIGITS) {
             VALUE num = rb_int_positive_pow(10, ndigits - TIME_SCALE_NUMDIGITS);
             subsec = rb_rational_new(subsec, num);
         }
@@ -5244,7 +5244,7 @@ time_xmlschema(int argc, VALUE *argv, VALUE time)
     if (FIXNUM_P(tobj->vtm.year)) {
         long year = FIX2LONG(tobj->vtm.year);
         int year_width = (year < 0) + rb_strlen_lit("YYYY");
-        int w = (year >= -9999 && year <= 9999 ? year_width : (year < 0) + DECIMAL_SIZE_OF(year));
+        int w = (year >= -9999 && year <= 9999 ? year_width : (year < 0) + (int)DECIMAL_SIZE_OF(year));
         str = rb_usascii_str_new(0, w + size_after_year);
         ptr = RSTRING_PTR(str);
         fill_digits_long(w + 1, year_width, year) {

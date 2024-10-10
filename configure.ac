@@ -662,9 +662,9 @@ RUBY_WERROR_FLAG([
         [enable_rpath=$enableval], [enable_rpath="$rb_cv_binary_elf"])
 
     AS_IF([test "$enable_rpath:${RPATHFLAG}" = yes:], [
-        RPATHFLAG="${rpathflag:+ ${rpathflag}%1\$-s}"
+        RPATHFLAG="${rpathflag:+${rpathflag}%1\$-s}"
     ])
-    AS_CASE([${RPATHFLAG}],[*'%1$'*],[: ${LIBPATHFLAG=' -L%1$-s'}],[: ${LIBPATHFLAG=' -L%s'}])
+    AS_CASE([${RPATHFLAG}],[*'%1$'*],[: ${LIBPATHFLAG='-L%1$-s'}],[: ${LIBPATHFLAG='-L%s'}])
 }
 
 RUBY_TRY_LDFLAGS(-fdeclspec, [fdeclspec=yes], [fdeclspec=no])
@@ -2088,7 +2088,7 @@ AC_CHECK_FUNCS(_longjmp)		# used for AC_ARG_WITH(setjmp-type)
 test x$ac_cv_func__longjmp = xno && ac_cv_func__setjmp=no
 AC_CHECK_FUNCS(arc4random_buf)
 AC_CHECK_FUNCS(atan2l atan2f)
-AC_CHECK_DECLS(atomic_signal_fence, [], [], [#include <stdatomic.h>])
+AC_CHECK_DECLS(atomic_signal_fence, [], [], [@%:@include <stdatomic.h>])
 AC_CHECK_FUNCS(chmod)
 AC_CHECK_FUNCS(chown)
 AC_CHECK_FUNCS(chroot)
@@ -3719,16 +3719,16 @@ AS_CASE("$enable_shared", [yes], [
   ])
 ])
 AS_IF([test "$enable_rpath" = yes], [
-    test -z "$LIBRUBY_RPATHFLAGS" || LIBRUBY_RPATHFLAGS="$LIBRUBY_RPATHFLAGS "
-    rpathflag="${RPATHFLAG}"
-    AS_CASE(["${cross_compiling}${load_relative}"], [*yes*], [], [rpathflag="$RPATHFLAG$LIBPATHFLAG"])
+    AS_CASE(["${cross_compiling}${load_relative}"],
+        [*yes*], [rpathflag="${RPATHFLAG}"],
+        [rpathflag="$RPATHFLAG${LIBPATHFLAG:+${RPATHFLAG:+ }$LIBPATHFLAG}"])
     rpathflag=`IFS="$PATH_SEPARATOR"
         echo x "$rpathflag" |
         sed "s/^x *//;s${IFS}"'%1\\$-s'"${IFS}${libprefix}${IFS}g;s${IFS}%s${IFS}${libprefix}${IFS}g"
     `
-    LIBRUBY_RPATHFLAGS="$LIBRUBY_RPATHFLAGS${rpathflag}"
-    LIBRUBYARG_SHARED="$LIBRUBY_RPATHFLAGS $LIBRUBYARG_SHARED"
-    LIBRUBYARG_STATIC="$LIBRUBY_RPATHFLAGS $LIBRUBYARG_STATIC"
+    LIBRUBY_RPATHFLAGS="${LIBRUBY_RPATHFLAGS:+$LIBRUBY_RPATHFLAGS }${rpathflag}"
+    LIBRUBYARG_SHARED="${LIBRUBY_RPATHFLAGS:+$LIBRUBY_RPATHFLAGS }$LIBRUBYARG_SHARED"
+    LIBRUBYARG_STATIC="${LIBRUBY_RPATHFLAGS:+$LIBRUBY_RPATHFLAGS }$LIBRUBYARG_STATIC"
 ])
 AC_SUBST(LIBRUBY_RELATIVE)
 
@@ -4559,6 +4559,17 @@ AS_IF([test x"$enable_rubygems" = xno], [
     USE_RUBYGEMS=yes
 ])
 AC_SUBST(USE_RUBYGEMS)
+
+m4_define(available_parsers, [parse.y, prism])
+with_parser=prism
+AC_ARG_WITH(parser,
+    AS_HELP_STRING([--with-parser=PARSER],
+        [specify default parser; PARSER is one of ]m4_join([, ],available_parsers)))
+AS_CASE([$with_parser],
+m4_foreach(parser, [available_parsers],
+    parser[,][AC_DEFINE_UNQUOTED(RB_DEFAULT_PARSER, RB_DEFAULT_PARSER_[]AS_TR_CPP(parser)),])
+    [AC_MSG_ERROR([Unknown parser: $with_parser])]
+)
 
 arch_hdrdir="${EXTOUT}/include/${arch}/ruby"
 AS_MKDIR_P("${arch_hdrdir}")
