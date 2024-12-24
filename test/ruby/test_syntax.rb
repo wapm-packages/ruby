@@ -1920,6 +1920,7 @@ eom
     assert_equal(4, eval('a=Object.new; def a.foo(it); it; end; a.foo(4)'))
     assert_equal(5, eval('a=Object.new; def a.it; 5; end; a.it'))
     assert_equal(6, eval('a=Class.new; a.class_eval{ def it; 6; end }; a.new.it'))
+    assert_equal([7, 8], eval('a=[]; [7].each { a << it; [8].each { a << it } }; a'))
     assert_raise_with_message(NameError, /undefined local variable or method 'it'/) do
       eval('it')
     end
@@ -1930,15 +1931,12 @@ eom
     1.times do
       [
         assert_equal(0, it),
-        assert_equal([0], eval('[:a].map{it}')),
-        assert_equal(0, eval('it')),
+        assert_equal([:a], eval('[:a].map{it}')),
+        assert_raise(NameError) {eval('it')},
       ]
     end
     assert_valid_syntax('proc {def foo(_);end;it}')
     assert_syntax_error('p { [it **2] }', /unexpected \*\*/)
-
-    b = proc {it; binding}.call
-    assert_include(b.local_variables, :it)
   end
 
   def test_value_expr_in_condition

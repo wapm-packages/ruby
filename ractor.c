@@ -2341,13 +2341,12 @@ ractor_check_blocking(rb_ractor_t *cr, unsigned int remained_thread_cnt, const c
         cr->threads.cnt == cr->threads.blocking_cnt + 1) {
         // change ractor status: running -> blocking
         rb_vm_t *vm = GET_VM();
-        ASSERT_vm_unlocking();
 
-        RB_VM_LOCK();
+        RB_VM_LOCK_ENTER();
         {
             rb_vm_ractor_blocking_cnt_inc(vm, cr, file, line);
         }
-        RB_VM_UNLOCK();
+        RB_VM_LOCK_LEAVE();
     }
 }
 
@@ -3579,6 +3578,10 @@ move_leave(VALUE obj, struct obj_traverse_replace_data *data)
 
     if (UNLIKELY(FL_TEST_RAW(obj, FL_EXIVAR))) {
         rb_replace_generic_ivar(v, obj);
+    }
+
+    if (OBJ_FROZEN(obj)) {
+        OBJ_FREEZE(v);
     }
 
     // TODO: generic_ivar
