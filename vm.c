@@ -452,7 +452,9 @@ jit_compile(rb_execution_context_t *ec)
             rb_zjit_compile_iseq(iseq, ec, false);
         }
     }
-#elif USE_YJIT
+#endif
+
+#if USE_YJIT
     // Increment the ISEQ's call counter and trigger JIT compilation if not compiled
     if (body->jit_entry == NULL && rb_yjit_enabled_p) {
         body->jit_entry_calls++;
@@ -3230,7 +3232,6 @@ ruby_vm_destruct(rb_vm_t *vm)
     return 0;
 }
 
-size_t rb_vm_memsize_waiting_fds(struct ccan_list_head *waiting_fds); // thread.c
 size_t rb_vm_memsize_workqueue(struct ccan_list_head *workqueue); // vm_trace.c
 
 // Used for VM memsize reporting. Returns the size of the at_exit list by
@@ -3285,7 +3286,6 @@ vm_memsize(const void *ptr)
 
     return (
         sizeof(rb_vm_t) +
-        rb_vm_memsize_waiting_fds(&vm->waiting_fds) +
         rb_st_memsize(vm->loaded_features_index) +
         rb_st_memsize(vm->loading_table) +
         rb_vm_memsize_postponed_job_queue() +
@@ -3558,6 +3558,7 @@ thread_mark(void *ptr)
     rb_gc_mark(th->last_status);
     rb_gc_mark(th->locking_mutex);
     rb_gc_mark(th->name);
+    rb_gc_mark(th->ractor_waiting.receiving_mutex);
 
     rb_gc_mark(th->scheduler);
 
@@ -3719,6 +3720,10 @@ th_init(rb_thread_t *th, VALUE self, rb_vm_t *vm)
     th->ext_config.ractor_safe = true;
 
     ccan_list_head_init(&th->interrupt_exec_tasks);
+    ccan_list_node_init(&th->ractor_waiting.waiting_node);
+#ifndef RUBY_THREAD_PTHREAD_H
+    rb_native_cond_initialize(&th->ractor_waiting.cond);
+#endif
 
 #if USE_RUBY_DEBUG_LOG
     static rb_atomic_t thread_serial = 1;

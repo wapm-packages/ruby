@@ -409,11 +409,13 @@ init_copy(VALUE dest, VALUE obj)
     RBASIC(dest)->flags &= ~(T_MASK|FL_EXIVAR);
     // Copies the shape id from obj to dest
     RBASIC(dest)->flags |= RBASIC(obj)->flags & (T_MASK|FL_EXIVAR);
-    rb_gc_copy_attributes(dest, obj);
-    rb_copy_generic_ivar(dest, obj);
     if (RB_TYPE_P(obj, T_OBJECT)) {
         rb_obj_copy_ivar(dest, obj);
     }
+    else {
+        rb_copy_generic_ivar(dest, obj);
+    }
+    rb_gc_copy_attributes(dest, obj);
 }
 
 static VALUE immutable_obj_clone(VALUE obj, VALUE kwfreeze);
@@ -2137,17 +2139,6 @@ static VALUE class_call_alloc_func(rb_alloc_func_t allocator, VALUE klass);
  *      klass.allocate.initialized? #=> false
  *
  */
-
-static VALUE
-rb_class_alloc_m(VALUE klass)
-{
-    rb_alloc_func_t allocator = class_get_alloc_func(klass);
-    if (!rb_obj_respond_to(klass, rb_intern("allocate"), 1)) {
-        rb_raise(rb_eTypeError, "calling %"PRIsVALUE".allocate is prohibited",
-                 klass);
-    }
-    return class_call_alloc_func(allocator, klass);
-}
 
 static VALUE
 rb_class_alloc(VALUE klass)
@@ -4603,8 +4594,8 @@ InitVM_Object(void)
     rb_define_method(rb_cModule, "deprecate_constant", rb_mod_deprecate_constant, -1); /* in variable.c */
     rb_define_method(rb_cModule, "singleton_class?", rb_mod_singleton_p, 0);
 
-    rb_define_method(rb_singleton_class(rb_cClass), "allocate", rb_class_alloc_m, 0);
-    rb_define_method(rb_cClass, "allocate", rb_class_alloc_m, 0);
+    rb_define_method(rb_singleton_class(rb_cClass), "allocate", rb_class_alloc, 0);
+    rb_define_method(rb_cClass, "allocate", rb_class_alloc, 0);
     rb_define_method(rb_cClass, "new", rb_class_new_instance_pass_kw, -1);
     rb_define_method(rb_cClass, "initialize", rb_class_initialize, -1);
     rb_define_method(rb_cClass, "superclass", rb_class_superclass, 0);

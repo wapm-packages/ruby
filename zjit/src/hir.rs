@@ -1,13 +1,23 @@
+//! High level intermediary representation.
+
 // We use the YARV bytecode constants which have a CRuby-style name
 #![allow(non_upper_case_globals)]
 
 use crate::{
     cruby::*,
     options::{get_option, DumpHIR},
-    profile::{self, get_or_create_iseq_payload},
+    profile::{get_or_create_iseq_payload, IseqPayload},
     state::ZJITState,
+    cast::IntoUsize,
 };
-use std::{cell::RefCell, collections::{HashMap, HashSet, VecDeque}, ffi::c_void, mem::{align_of, size_of}, ptr, slice::Iter};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet, VecDeque},
+    ffi::{c_int, c_void},
+    mem::{align_of, size_of},
+    ptr,
+    slice::Iter
+};
 use crate::hir_type::{Type, types};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
@@ -653,6 +663,8 @@ impl<T: Copy + Into<usize> + PartialEq> UnionFind<T> {
 pub struct Function {
     // ISEQ this function refers to
     iseq: *const rb_iseq_t,
+    // The types for the parameters of this function
+    param_types: Vec<Type>,
 
     // TODO: get method name and source location from the ISEQ
 
@@ -661,6 +673,7 @@ pub struct Function {
     insn_types: Vec<Type>,
     blocks: Vec<Block>,
     entry_block: BlockId,
+    profiles: Option<ProfileOracle>,
 }
 
 impl Function {
@@ -672,6 +685,8 @@ impl Function {
             union_find: UnionFind::new().into(),
             blocks: vec![Block::default()],
             entry_block: BlockId(0),
+            param_types: vec![],
+            profiles: None,
         }
     }
 
@@ -912,9 +927,18 @@ impl Function {
     fn infer_types(&mut self) {
         // Reset all types
         self.insn_types.fill(types::Empty);
-        for param in &self.blocks[self.entry_block.0].params {
+
+        // Fill parameter types
+        let entry_params = self.blocks[self.entry_block.0].params.iter();
+        let param_types = self.param_types.iter();
+        assert_eq!(
+            entry_params.len(),
+            entry_params.len(),
+            "param types should be initialized before type inference"
+        );
+        for (param, param_type) in std::iter::zip(entry_params, param_types) {
             // We know that function parameters are BasicObject or some subclass
-            self.insn_types[param.0] = types::BasicObject;
+            self.insn_types[param.0] = *param_type;
         }
         let rpo = self.rpo();
         // Walk the graph, computing types until fixpoint
@@ -972,6 +996,20 @@ impl Function {
         }
     }
 
+    /// Return the interpreter-profiled type of the HIR instruction at the given ISEQ instruction
+    /// index, if it is known. This historical type record is not a guarantee and must be checked
+    /// with a GuardType or similar.
+    fn profiled_type_of_at(&self, insn: InsnId, iseq_insn_idx: usize) -> Option<Type> {
+        let Some(ref profiles) = self.profiles else { return None };
+        let Some(entries) = profiles.types.get(&iseq_insn_idx) else { return None };
+        for &(entry_insn, entry_type) in entries {
+            if self.union_find.borrow().find_const(entry_insn) == self.union_find.borrow().find_const(insn) {
+                return Some(entry_type);
+            }
+        }
+        None
+    }
+
     fn likely_is_fixnum(&self, val: InsnId, profiled_type: Type) -> bool {
         return self.is_a(val, types::Fixnum) || profiled_type.is_subtype(types::Fixnum);
     }
@@ -981,20 +1019,16 @@ impl Function {
         return self.push_insn(block, Insn::GuardType { val, guard_type: types::Fixnum, state });
     }
 
-    fn arguments_likely_fixnums(&mut self, payload: &profile:: IseqPayload, left: InsnId, right: InsnId, state: InsnId) -> bool {
-        let mut left_profiled_type = types::BasicObject;
-        let mut right_profiled_type = types::BasicObject;
+    fn arguments_likely_fixnums(&mut self, left: InsnId, right: InsnId, state: InsnId) -> bool {
         let frame_state = self.frame_state(state);
-        let insn_idx = frame_state.insn_idx;
-        if let Some([left_type, right_type]) = payload.get_operand_types(insn_idx as usize) {
-            left_profiled_type = *left_type;
-            right_profiled_type = *right_type;
-        }
+        let iseq_insn_idx = frame_state.insn_idx as usize;
+        let left_profiled_type = self.profiled_type_of_at(left, iseq_insn_idx).unwrap_or(types::BasicObject);
+        let right_profiled_type = self.profiled_type_of_at(right, iseq_insn_idx).unwrap_or(types::BasicObject);
         self.likely_is_fixnum(left, left_profiled_type) && self.likely_is_fixnum(right, right_profiled_type)
     }
 
-    fn try_rewrite_fixnum_op(&mut self, block: BlockId, orig_insn_id: InsnId, f: &dyn Fn(InsnId, InsnId) -> Insn, bop: u32, left: InsnId, right: InsnId, payload: &profile::IseqPayload, state: InsnId) {
-        if self.arguments_likely_fixnums(payload, left, right, state) {
+    fn try_rewrite_fixnum_op(&mut self, block: BlockId, orig_insn_id: InsnId, f: &dyn Fn(InsnId, InsnId) -> Insn, bop: u32, left: InsnId, right: InsnId, state: InsnId) {
+        if self.arguments_likely_fixnums(left, right, state) {
             if bop == BOP_NEQ {
                 // For opt_neq, the interpreter checks that both neq and eq are unchanged.
                 self.push_insn(block, Insn::PatchPoint(Invariant::BOPRedefined { klass: INTEGER_REDEFINED_OP_FLAG, bop: BOP_EQ }));
@@ -1004,6 +1038,7 @@ impl Function {
             let right = self.coerce_to_fixnum(block, right, state);
             let result = self.push_insn(block, f(left, right));
             self.make_equal_to(orig_insn_id, result);
+            self.insn_types[result.0] = self.infer_type(result);
         } else {
             self.push_insn_id(block, orig_insn_id);
         }
@@ -1012,34 +1047,33 @@ impl Function {
     /// Rewrite SendWithoutBlock opcodes into SendWithoutBlockDirect opcodes if we know the target
     /// ISEQ statically. This removes run-time method lookups and opens the door for inlining.
     fn optimize_direct_sends(&mut self) {
-        let payload = get_or_create_iseq_payload(self.iseq);
         for block in self.rpo() {
             let old_insns = std::mem::take(&mut self.blocks[block.0].insns);
             assert!(self.blocks[block.0].insns.is_empty());
             for insn_id in old_insns {
                 match self.find(insn_id) {
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "+" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumAdd { left, right, state }, BOP_PLUS, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumAdd { left, right, state }, BOP_PLUS, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "-" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumSub { left, right, state }, BOP_MINUS, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumSub { left, right, state }, BOP_MINUS, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "*" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumMult { left, right, state }, BOP_MULT, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumMult { left, right, state }, BOP_MULT, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "/" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumDiv { left, right, state }, BOP_DIV, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumDiv { left, right, state }, BOP_DIV, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "%" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumMod { left, right, state }, BOP_MOD, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumMod { left, right, state }, BOP_MOD, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "==" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumEq { left, right }, BOP_EQ, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumEq { left, right }, BOP_EQ, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "!=" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumNeq { left, right }, BOP_NEQ, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumNeq { left, right }, BOP_NEQ, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "<" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumLt { left, right }, BOP_LT, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumLt { left, right }, BOP_LT, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == "<=" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumLe { left, right }, BOP_LE, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumLe { left, right }, BOP_LE, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == ">" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumGt { left, right }, BOP_GT, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumGt { left, right }, BOP_GT, self_val, args[0], state),
                     Insn::SendWithoutBlock { self_val, call_info: CallInfo { method_name }, args, state, .. } if method_name == ">=" && args.len() == 1 =>
-                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumGe { left, right }, BOP_GE, self_val, args[0], payload, state),
+                        self.try_rewrite_fixnum_op(block, insn_id, &|left, right| Insn::FixnumGe { left, right }, BOP_GE, self_val, args[0], state),
                     Insn::SendWithoutBlock { mut self_val, call_info, cd, args, state } => {
                         let frame_state = self.frame_state(state);
                         let (klass, guard_equal_to) = if let Some(klass) = self.type_of(self_val).runtime_exact_ruby_class() {
@@ -1047,8 +1081,8 @@ impl Function {
                             (klass, None)
                         } else {
                             // If we know that self is top-self from profile information, guard and use it to fold the lookup at compile-time.
-                            match payload.get_operand_types(frame_state.insn_idx) {
-                                Some([self_type, ..]) if self_type.is_top_self() => (self_type.exact_ruby_class().unwrap(), self_type.ruby_object()),
+                            match self.profiled_type_of_at(self_val, frame_state.insn_idx) {
+                                Some(self_type) if self_type.is_top_self() => (self_type.exact_ruby_class().unwrap(), self_type.ruby_object()),
                                 _ => { self.push_insn_id(block, insn_id); continue; }
                             }
                         };
@@ -1108,7 +1142,6 @@ impl Function {
         fn reduce_to_ccall(
             fun: &mut Function,
             block: BlockId,
-            payload: &profile::IseqPayload,
             self_type: Type,
             send: Insn,
             send_insn_id: InsnId,
@@ -1120,7 +1153,6 @@ impl Function {
             let call_info = unsafe { (*cd).ci };
             let argc = unsafe { vm_ci_argc(call_info) };
             let method_id = unsafe { rb_vm_ci_mid(call_info) };
-            let iseq_insn_idx = fun.frame_state(state).insn_idx;
 
             // If we have info about the class of the receiver
             //
@@ -1130,10 +1162,10 @@ impl Function {
             let (recv_class, guard_type) = if let Some(klass) = self_type.runtime_exact_ruby_class() {
                 (klass, None)
             } else {
-                payload.get_operand_types(iseq_insn_idx)
-                .and_then(|types| types.get(argc as usize))
-                .and_then(|recv_type| recv_type.exact_ruby_class().and_then(|class| Some((class, Some(recv_type.unspecialized())))))
-                .ok_or(())?
+                let iseq_insn_idx = fun.frame_state(state).insn_idx;
+                let Some(recv_type) = fun.profiled_type_of_at(self_val, iseq_insn_idx) else { return Err(()) };
+                let Some(recv_class) = recv_type.exact_ruby_class() else { return Err(()) };
+                (recv_class, Some(recv_type.unspecialized()))
             };
 
             // Do method lookup
@@ -1199,14 +1231,13 @@ impl Function {
             Err(())
         }
 
-        let payload = get_or_create_iseq_payload(self.iseq);
         for block in self.rpo() {
             let old_insns = std::mem::take(&mut self.blocks[block.0].insns);
             assert!(self.blocks[block.0].insns.is_empty());
             for insn_id in old_insns {
                 if let send @ Insn::SendWithoutBlock { self_val, .. } = self.find(insn_id) {
                     let self_type = self.type_of(self_val);
-                    if reduce_to_ccall(self, block, payload, self_type, send, insn_id).is_ok() {
+                    if reduce_to_ccall(self, block, self_type, send, insn_id).is_ok() {
                         continue;
                     }
                 }
@@ -1576,7 +1607,7 @@ impl FrameState {
     }
 
     /// Get a stack operand at idx
-    fn stack_topn(&mut self, idx: usize) -> Result<InsnId, ParseError> {
+    fn stack_topn(&self, idx: usize) -> Result<InsnId, ParseError> {
         let idx = self.stack.len() - idx - 1;
         self.stack.get(idx).ok_or_else(|| ParseError::StackUnderflow(self.clone())).copied()
     }
@@ -1674,15 +1705,9 @@ pub enum ParseError {
     UnhandledCallType(CallType),
 }
 
-fn num_lead_params(iseq: *const rb_iseq_t) -> usize {
-    let result = unsafe { rb_get_iseq_body_param_lead_num(iseq) };
-    assert!(result >= 0, "Can't have negative # of parameters");
-    result as usize
-}
-
 /// Return the number of locals in the current ISEQ (includes parameters)
 fn num_locals(iseq: *const rb_iseq_t) -> usize {
-    (unsafe { get_iseq_body_local_table_size(iseq) }) as usize
+    (unsafe { get_iseq_body_local_table_size(iseq) }).as_usize()
 }
 
 /// If we can't handle the type of send (yet), bail out.
@@ -1701,8 +1726,42 @@ fn filter_translatable_calls(flag: u32) -> Result<(), ParseError> {
     Ok(())
 }
 
+/// We have IseqPayload, which keeps track of HIR Types in the interpreter, but this is not useful
+/// or correct to query from inside the optimizer. Instead, ProfileOracle provides an API to look
+/// up profiled type information by HIR InsnId at a given ISEQ instruction.
+#[derive(Debug)]
+struct ProfileOracle {
+    payload: &'static IseqPayload,
+    /// types is a map from ISEQ instruction indices -> profiled type information at that ISEQ
+    /// instruction index. At a given ISEQ instruction, the interpreter has profiled the stack
+    /// operands to a given ISEQ instruction, and this list of pairs of (InsnId, Type) map that
+    /// profiling information into HIR instructions.
+    types: HashMap<usize, Vec<(InsnId, Type)>>,
+}
+
+impl ProfileOracle {
+    fn new(payload: &'static IseqPayload) -> Self {
+        Self { payload, types: Default::default() }
+    }
+
+    /// Map the interpreter-recorded types of the stack onto the HIR operands on our compile-time virtual stack
+    fn profile_stack(&mut self, state: &FrameState) {
+        let iseq_insn_idx = state.insn_idx;
+        let Some(operand_types) = self.payload.get_operand_types(iseq_insn_idx) else { return };
+        let entry = self.types.entry(iseq_insn_idx).or_insert_with(|| vec![]);
+        // operand_types is always going to be <= stack size (otherwise it would have an underflow
+        // at run-time) so use that to drive iteration.
+        for (idx, &insn_type) in operand_types.iter().rev().enumerate() {
+            let insn = state.stack_topn(idx).expect("Unexpected stack underflow in profiling");
+            entry.push((insn, insn_type))
+        }
+    }
+}
+
 /// Compile ISEQ into High-level IR
 pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
+    let payload = get_or_create_iseq_payload(iseq);
+    let mut profiles = ProfileOracle::new(payload);
     let mut fun = Function::new(iseq);
     // Compute a map of PC->Block by finding jump targets
     let jump_targets = compute_jump_targets(iseq);
@@ -1717,13 +1776,32 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
     // Iteratively fill out basic blocks using a queue
     // TODO(max): Basic block arguments at edges
     let mut queue = std::collections::VecDeque::new();
+    // Index of the rest parameter for comparison below
+    let rest_param_idx = if !iseq.is_null() && unsafe { get_iseq_flags_has_rest(iseq) } {
+        let opt_num = unsafe { get_iseq_body_param_opt_num(iseq) };
+        let lead_num = unsafe { get_iseq_body_param_lead_num(iseq) };
+        opt_num + lead_num
+    } else {
+        -1
+    };
+    // The HIR function will have the same number of parameter as the iseq so
+    // we properly handle calls from the interpreter. Roughly speaking, each
+    // item between commas in the source increase the parameter count by one,
+    // regardless of parameter kind.
     let mut entry_state = FrameState::new(iseq);
     for idx in 0..num_locals(iseq) {
-        if idx < num_lead_params(iseq) {
+        if idx < unsafe { get_iseq_body_param_size(iseq) }.as_usize() {
             entry_state.locals.push(fun.push_insn(fun.entry_block, Insn::Param { idx }));
         } else {
             entry_state.locals.push(fun.push_insn(fun.entry_block, Insn::Const { val: Const::Value(Qnil) }));
         }
+
+        let mut param_type = types::BasicObject;
+        // Rest parameters are always ArrayExact
+        if let Ok(true) = c_int::try_from(idx).map(|idx| idx == rest_param_idx) {
+            param_type = types::ArrayExact;
+        }
+        fun.param_types.push(param_type);
     }
     queue.push_back((entry_state, fun.entry_block, /*insn_idx=*/0_u32));
 
@@ -1756,6 +1834,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
             let pc = unsafe { rb_iseq_pc_at_idx(iseq, insn_idx) };
             state.pc = pc;
             let exit_state = state.clone();
+            profiles.profile_stack(&exit_state);
 
             // try_into() call below is unfortunate. Maybe pick i32 instead of usize for opcodes.
             let opcode: u32 = unsafe { rb_iseq_opcode_at_pc(iseq, pc) }
@@ -1782,7 +1861,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                 }
                 YARVINSN_newarray => {
                     let count = get_arg(pc, 0).as_usize();
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let mut elements = vec![];
                     for _ in 0..count {
                         elements.push(state.stack_pop()?);
@@ -1798,7 +1877,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         elements.push(state.stack_pop()?);
                     }
                     elements.reverse();
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let (bop, insn) = match method {
                         VM_OPT_NEWARRAY_SEND_MAX => (BOP_MAX, Insn::ArrayMax { elements, state: exit_id }),
                         VM_OPT_NEWARRAY_SEND_MIN => return Err(ParseError::UnknownNewArraySend("min".into())),
@@ -1812,7 +1891,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                 }
                 YARVINSN_duparray => {
                     let val = fun.push_insn(block, Insn::Const { val: Const::Value(get_arg(pc, 0)) });
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let insn_id = fun.push_insn(block, Insn::ArrayDup { val, state: exit_id });
                     state.stack_push(insn_id);
                 }
@@ -1936,7 +2015,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                     args.reverse();
 
                     let recv = state.stack_pop()?;
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let send = fun.push_insn(block, Insn::SendWithoutBlock { self_val: recv, call_info: CallInfo { method_name }, cd, args, state: exit_id });
                     state.stack_push(send);
                 }
@@ -1979,7 +2058,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                     args.reverse();
 
                     let recv = state.stack_pop()?;
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let send = fun.push_insn(block, Insn::SendWithoutBlock { self_val: recv, call_info: CallInfo { method_name }, cd, args, state: exit_id });
                     state.stack_push(send);
                 }
@@ -2001,7 +2080,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                     args.reverse();
 
                     let recv = state.stack_pop()?;
-                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state.clone() });
+                    let exit_id = fun.push_insn(block, Insn::Snapshot { state: exit_state });
                     let send = fun.push_insn(block, Insn::Send { self_val: recv, call_info: CallInfo { method_name }, cd, blockiseq, args, state: exit_id });
                     state.stack_push(send);
                 }
@@ -2026,6 +2105,7 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
         None => {},
     }
 
+    fun.profiles = Some(profiles);
     Ok(fun)
 }
 
@@ -3023,8 +3103,8 @@ mod opt_tests {
             bb0():
               PatchPoint BOPRedefined(INTEGER_REDEFINED_OP_FLAG, BOP_PLUS)
               PatchPoint BOPRedefined(INTEGER_REDEFINED_OP_FLAG, BOP_PLUS)
-              v15:Fixnum[6] = Const Value(6)
-              Return v15
+              v14:Fixnum[6] = Const Value(6)
+              Return v14
         "#]]);
     }
 
@@ -3109,6 +3189,52 @@ mod opt_tests {
               v7:Fixnum = GuardType v0, Fixnum
               v8:Fixnum = FixnumAdd v7, v2
               Return v8
+        "#]]);
+    }
+
+    #[test]
+    fn test_param_forms_get_bb_param() {
+        eval("
+            def rest(*array) = array
+            def kw(k:) = k
+            def kw_rest(**k) = k
+            def post(*rest, post) = post
+            def block(&b) = nil
+            def forwardable(...) = nil
+        ");
+
+        assert_optimized_method_hir("rest", expect![[r#"
+            fn rest:
+            bb0(v0:ArrayExact):
+              Return v0
+        "#]]);
+        // extra hidden param for the set of specified keywords
+        assert_optimized_method_hir("kw", expect![[r#"
+            fn kw:
+            bb0(v0:BasicObject, v1:BasicObject):
+              Return v0
+        "#]]);
+        assert_optimized_method_hir("kw_rest", expect![[r#"
+            fn kw_rest:
+            bb0(v0:BasicObject):
+              Return v0
+        "#]]);
+        assert_optimized_method_hir("block", expect![[r#"
+            fn block:
+            bb0(v0:BasicObject):
+              v2:NilClassExact = Const Value(nil)
+              Return v2
+        "#]]);
+        assert_optimized_method_hir("post", expect![[r#"
+            fn post:
+            bb0(v0:ArrayExact, v1:BasicObject):
+              Return v1
+        "#]]);
+        assert_optimized_method_hir("forwardable", expect![[r#"
+            fn forwardable:
+            bb0(v0:BasicObject):
+              v2:NilClassExact = Const Value(nil)
+              Return v2
         "#]]);
     }
 

@@ -40,7 +40,19 @@
 # include "debug_counter.h"
 #endif
 
-#include "internal/sanitizers.h"
+#ifdef BUILDING_MODULAR_GC
+# define rb_asan_poison_object(_obj) (0)
+# define rb_asan_unpoison_object(_obj, _newobj_p) (0)
+# define asan_unpoisoning_object(_obj) if (true)
+# define asan_poison_memory_region(_ptr, _size) (0)
+# define asan_unpoison_memory_region(_ptr, _size, _malloc_p) (0)
+# define asan_unpoisoning_memory_region(_ptr, _size) if (true)
+
+# define VALGRIND_MAKE_MEM_DEFINED(_ptr, _size) (0)
+# define VALGRIND_MAKE_MEM_UNDEFINED(_ptr, _size) (0)
+#else
+# include "internal/sanitizers.h"
+#endif
 
 /* MALLOC_HEADERS_BEGIN */
 #ifndef HAVE_MALLOC_USABLE_SIZE
@@ -2073,10 +2085,10 @@ heap_prepare(rb_objspace_t *objspace, rb_heap_t *heap)
 static inline VALUE
 newobj_fill(VALUE obj, VALUE v1, VALUE v2, VALUE v3)
 {
-    VALUE *p = (VALUE *)obj;
-    p[2] = v1;
-    p[3] = v2;
-    p[4] = v3;
+    VALUE *p = (VALUE *)(obj + sizeof(struct RBasic));
+    p[0] = v1;
+    p[1] = v2;
+    p[2] = v3;
     return obj;
 }
 
@@ -2774,7 +2786,11 @@ rb_gc_impl_undefine_finalizer(void *objspace_ptr, VALUE obj)
     GC_ASSERT(!OBJ_FROZEN(obj));
 
     st_data_t data = obj;
+
+    int lev = rb_gc_vm_lock();
     st_delete(finalizer_table, &data, 0);
+    rb_gc_vm_unlock(lev);
+
     FL_UNSET(obj, FL_FINALIZE);
 }
 
@@ -2787,14 +2803,17 @@ rb_gc_impl_copy_finalizer(void *objspace_ptr, VALUE dest, VALUE obj)
 
     if (!FL_TEST(obj, FL_FINALIZE)) return;
 
+    int lev = rb_gc_vm_lock();
     if (RB_LIKELY(st_lookup(finalizer_table, obj, &data))) {
-        table = (VALUE)data;
+        table = rb_ary_dup((VALUE)data);
+        RARRAY_ASET(table, 0, rb_obj_id(dest));
         st_insert(finalizer_table, dest, table);
         FL_SET(dest, FL_FINALIZE);
     }
     else {
         rb_bug("rb_gc_copy_finalizer: FL_FINALIZE set but not found in finalizer_table: %s", rb_obj_info(obj));
     }
+    rb_gc_vm_unlock(lev);
 }
 
 static VALUE
@@ -2838,9 +2857,9 @@ finalize_list(rb_objspace_t *objspace, VALUE zombie)
         next_zombie = RZOMBIE(zombie)->next;
         page = GET_HEAP_PAGE(zombie);
 
-        run_final(objspace, zombie);
-
         int lev = rb_gc_vm_lock();
+
+        run_final(objspace, zombie);
         {
             GC_ASSERT(BUILTIN_TYPE(zombie) == T_ZOMBIE);
             GC_ASSERT(page->heap->final_slots_count > 0);

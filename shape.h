@@ -94,12 +94,15 @@ static inline shape_id_t
 get_shape_id_from_flags(VALUE obj)
 {
     RUBY_ASSERT(!RB_SPECIAL_CONST_P(obj));
+    RUBY_ASSERT(!RB_TYPE_P(obj, T_IMEMO));
     return (shape_id_t)((RBASIC(obj)->flags) >> SHAPE_FLAG_SHIFT);
 }
 
 static inline void
 set_shape_id_in_flags(VALUE obj, shape_id_t shape_id)
 {
+    RUBY_ASSERT(!RB_SPECIAL_CONST_P(obj));
+    RUBY_ASSERT(!RB_TYPE_P(obj, T_IMEMO));
     // Ractors are occupying the upper 32 bits of flags, but only in debug mode
     // Object shapes are occupying top bits
     RBASIC(obj)->flags &= SHAPE_FLAG_MASK;
@@ -168,8 +171,8 @@ shape_id_t rb_shape_transition_complex(VALUE obj);
 bool rb_shape_transition_remove_ivar(VALUE obj, ID id, VALUE *removed);
 shape_id_t rb_shape_transition_add_ivar(VALUE obj, ID id);
 shape_id_t rb_shape_transition_add_ivar_no_warnings(VALUE obj, ID id);
+shape_id_t rb_shape_transition_object_id(VALUE obj);
 
-rb_shape_t *rb_shape_object_id_shape(VALUE obj);
 bool rb_shape_has_object_id(rb_shape_t *shape);
 void rb_shape_free_all(void);
 
