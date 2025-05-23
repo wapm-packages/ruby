@@ -122,6 +122,22 @@ class JSONGeneratorTest < Test::Unit::TestCase
     assert_equal '666', pretty_generate(666)
   end
 
+  def test_generate_pretty_custom
+    state = State.new(:space_before => "<psb>", :space => "<ps>", :indent => "<pi>", :object_nl => "\n<po_nl>\n", :array_nl => "<pa_nl>")
+    json = pretty_generate({1=>{}, 2=>['a','b'], 3=>4}, state)
+    assert_equal(<<~'JSON'.chomp, json)
+      {
+      <po_nl>
+      <pi>"1"<psb>:<ps>{},
+      <po_nl>
+      <pi>"2"<psb>:<ps>[<pa_nl><pi><pi>"a",<pa_nl><pi><pi>"b"<pa_nl><pi>],
+      <po_nl>
+      <pi>"3"<psb>:<ps>4
+      <po_nl>
+      }
+    JSON
+  end
+
   def test_generate_custom
     state = State.new(:space_before => " ", :space => "   ", :indent => "<i>", :object_nl => "\n", :array_nl => "<a_nl>")
     json = generate({1=>{2=>3,4=>[5,6]}}, state)
@@ -770,6 +786,14 @@ class JSONGeneratorTest < Test::Unit::TestCase
   def test_json_generate_float
       values = [-1.0, 1.0, 0.0, 12.2, 7.5 / 3.2, 12.0, 100.0, 1000.0]
       expecteds = ["-1.0", "1.0", "0.0", "12.2", "2.34375", "12.0", "100.0", "1000.0"]
+
+      if RUBY_ENGINE == "jruby"
+        values << 1746861937.7842371
+        expecteds << "1.7468619377842371E9"
+      else
+        values << 1746861937.7842371
+        expecteds << "1746861937.7842371"
+      end
 
       values.zip(expecteds).each do |value, expected|
         assert_equal expected, value.to_json
