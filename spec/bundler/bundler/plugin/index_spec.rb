@@ -193,4 +193,48 @@ RSpec.describe Bundler::Plugin::Index do
       include_examples "it cleans up"
     end
   end
+
+  describe "relative plugin paths" do
+    let(:plugin_name) { "relative-plugin" }
+
+    before do
+      Bundler::Plugin.reset!
+      allow(Bundler::SharedHelpers).to receive(:find_gemfile).and_return(bundled_app_gemfile)
+
+      plugin_root = Bundler::Plugin.root
+      FileUtils.mkdir_p(plugin_root)
+
+      path = plugin_root.join(plugin_name)
+      FileUtils.mkdir_p(path.join("lib"))
+
+      index.register_plugin(plugin_name, path.to_s, [path.join("lib").to_s], [], [], [])
+    end
+
+    it "stores plugin paths relative to the plugin root" do
+      require "yaml"
+      data = YAML.load_file(index.index_file)
+
+      expect(data["plugin_paths"][plugin_name]).to eq(plugin_name)
+      expect(data["load_paths"][plugin_name]).to eq([File.join(plugin_name, "lib")])
+    end
+
+    it "expands relative paths when the plugin root changes" do
+      old_index_file = index.index_file
+
+      new_root = tmp.join("moved_plugin_root")
+      FileUtils.mkdir_p(new_root)
+      FileUtils.cp(old_index_file, new_root.join("index"))
+
+      Bundler::Plugin.reset!
+      Bundler::Plugin.instance_variable_set(:@root, nil)
+      allow(Bundler::SharedHelpers).to receive(:find_gemfile).and_return(bundled_app_gemfile)
+      allow(Bundler::Plugin).to receive(:root).and_return(new_root)
+      allow(Bundler::Plugin).to receive(:local_root).and_return(new_root)
+
+      new_index = Index.new
+
+      expect(new_index.plugin_path(plugin_name)).to eq(new_root.join(plugin_name))
+      expect(new_index.load_paths(plugin_name)).to eq([new_root.join(plugin_name, "lib").to_s])
+    end
+  end
 end
