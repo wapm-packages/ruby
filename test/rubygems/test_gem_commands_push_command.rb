@@ -103,6 +103,8 @@ class TestGemCommandsPushCommand < Gem::TestCase
   end
 
   def test_execute_attestation
+    omit if RUBY_ENGINE == "jruby"
+
     @response = "Successfully registered gem: freewill (1.0.0)"
     @fetcher.data["#{Gem.host}/api/v1/gems"] = HTTPResponseFactory.create(body: @response, code: 200, msg: "OK")
 
@@ -119,6 +121,8 @@ class TestGemCommandsPushCommand < Gem::TestCase
   end
 
   def test_execute_attestation_auto
+    omit if RUBY_ENGINE == "jruby"
+
     @response = "Successfully registered gem: freewill (1.0.0)"
     @fetcher.data["#{Gem.host}/api/v1/gems"] = HTTPResponseFactory.create(body: @response, code: 200, msg: "OK")
 
@@ -138,6 +142,8 @@ class TestGemCommandsPushCommand < Gem::TestCase
   end
 
   def test_execute_attestation_fallback
+    omit if RUBY_ENGINE == "jruby"
+
     @response = "Successfully registered gem: freewill (1.0.0)"
     @fetcher.data["#{Gem.host}/api/v1/gems"] = HTTPResponseFactory.create(body: @response, code: 200, msg: "OK")
 
