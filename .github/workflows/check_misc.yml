@@ -111,7 +111,7 @@ jobs:
       - name: Generate docs
         id: docs
         run: |
-          make XRUBY=ruby RDOC_DEPENDS= RBCONFIG=update-rbconfig html
+          make XRUBY=ruby RDOC_DEPENDS= RBCONFIG=update-rbconfig HTMLOUT=html html
           echo htmlout=ruby-html-${GITHUB_SHA:0:10} >> $GITHUB_OUTPUT
         # Generate only when document commit/PR
         if: >-
