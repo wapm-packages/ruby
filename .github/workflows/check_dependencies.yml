@@ -50,7 +50,7 @@ jobs:
 
       - run: make fix-depends
 
-      - run: git diff --no-ext-diff --ignore-submodules --exit-code
+      - run: git diff --color --no-ext-diff --ignore-submodules --exit-code
 
       - uses: ./.github/actions/slack
         with:
