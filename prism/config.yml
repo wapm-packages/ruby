@@ -1046,19 +1046,19 @@ nodes:
       Represents an array pattern in pattern matching.
 
           foo in 1, 2
-          ^^^^^^^^^^^
+                 ^^^^
 
           foo in [1, 2]
-          ^^^^^^^^^^^^^
+                 ^^^^^^
 
           foo in *bar
-          ^^^^^^^^^^^
+                 ^^^^
 
           foo in Bar[]
-          ^^^^^^^^^^^^
+                 ^^^^^
 
           foo in Bar[1, 2, 3]
-          ^^^^^^^^^^^^^^^^^^^
+                 ^^^^^^^^^^^^
   - name: AssocNode
     fields:
       - name: key
@@ -1167,7 +1167,7 @@ nodes:
           Represents the else clause within the begin block.
 
               begin x; rescue y; else z; end
-                                 ^^^^^^
+                                 ^^^^^^^^^^^
       - name: ensure_clause
         type: node?
         kind: EnsureNode
@@ -1200,7 +1200,7 @@ nodes:
           The expression that is being passed as a block argument. This can be any [non-void expression](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
               foo(&args)
-                  ^^^^^
+                   ^^^^
       - name: operator_loc
         type: location
         comment: |
@@ -1212,7 +1212,7 @@ nodes:
       Represents a block argument using `&`.
 
           bar(&args)
-          ^^^^^^^^^^
+              ^^^^^
   - name: BlockLocalVariableNode
     flags: ParameterFlags
     fields:
@@ -1753,7 +1753,7 @@ nodes:
       Represents assigning to a local variable in pattern matching.
 
           foo => [bar => baz]
-                 ^^^^^^^^^^^^
+                  ^^^^^^^^^^
   - name: CaseMatchNode
     fields:
       - name: predicate
@@ -1763,7 +1763,7 @@ nodes:
           Represents the predicate of the case match. This can be either `nil` or any [non-void expressions](https://github.com/ruby/prism/blob/main/docs/parsing_rules.md#non-void-expression).
 
               case true; in false; end
-              ^^^^
+                   ^^^^
       - name: conditions
         type: node[]
         kind: InNode
@@ -1779,7 +1779,7 @@ nodes:
           Represents the else clause of the case match.
 
               case true; in false; else; end
-                                   ^^^^
+                                   ^^^^^^^^^
       - name: case_keyword_loc
         type: location
         comment: |
@@ -1826,7 +1826,7 @@ nodes:
           Represents the else clause of the case statement.
 
               case true; when false; else; end
-                                     ^^^^
+                                     ^^^^^^^^^
       - name: case_keyword_loc
         type: location
         comment: |
@@ -1888,9 +1888,8 @@ nodes:
         comment: |
           Represents the body of the class.
 
-              class Foo
-                foo
-                ^^^
+              class Foo; bar; end
+                         ^^^
       - name: end_keyword_loc
         type: location
         comment: |
@@ -4635,7 +4634,7 @@ nodes:
           The else clause of the unless expression, if present.
 
               unless cond then bar else baz end
-                                   ^^^^^^^^
+                                   ^^^^^^^^^^^^
       - name: end_keyword_loc
         type: location?
         comment: |
