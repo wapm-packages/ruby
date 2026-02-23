@@ -946,18 +946,23 @@ pub mod hir_build_tests {
           v4:BasicObject = LoadArg :self@0
           Jump bb3(v4)
         bb3(v6:BasicObject):
-          v10:BasicObject = GetLocal :l2, l2, EP@4
-          SetLocal :l1, l1, EP@3, v10
-          v15:BasicObject = GetLocal :l1, l1, EP@3
-          v17:BasicObject = GetLocal :l2, l2, EP@4
-          v20:BasicObject = Send v15, :+, v17 # SendFallbackReason: Uncategorized(opt_plus)
-          SetLocal :l2, l2, EP@4, v20
-          v25:BasicObject = GetLocal :l2, l2, EP@4
-          v27:BasicObject = GetLocal :l3, l3, EP@5
-          v30:BasicObject = Send v25, :+, v27 # SendFallbackReason: Uncategorized(opt_plus)
-          SetLocal :l3, l3, EP@5, v30
+          v10:CPtr = GetEP 2
+          v11:BasicObject = LoadField v10, :l2@0x1000
+          SetLocal :l1, l1, EP@3, v11
+          v16:CPtr = GetEP 1
+          v17:BasicObject = LoadField v16, :l1@0x1001
+          v19:CPtr = GetEP 2
+          v20:BasicObject = LoadField v19, :l2@0x1000
+          v23:BasicObject = Send v17, :+, v20 # SendFallbackReason: Uncategorized(opt_plus)
+          SetLocal :l2, l2, EP@4, v23
+          v28:CPtr = GetEP 2
+          v29:BasicObject = LoadField v28, :l2@0x1000
+          v31:CPtr = GetEP 3
+          v32:BasicObject = LoadField v31, :l3@0x1002
+          v35:BasicObject = Send v29, :+, v32 # SendFallbackReason: Uncategorized(opt_plus)
+          SetLocal :l3, l3, EP@5, v35
           CheckInterrupts
-          Return v30
+          Return v35
         "
         );
     }
@@ -3088,14 +3093,15 @@ pub mod hir_build_tests {
           IfTrue v10, bb4(v6)
           Jump bb5(v6)
         bb4(v11:BasicObject):
-          v17:BasicObject = GetLocal :block, l1, EP@3
-          Jump bb6(v11, v17)
+          v17:CPtr = GetEP 1
+          v18:BasicObject = LoadField v17, :block@0x1000
+          Jump bb6(v11, v18)
         bb5(v13:BasicObject):
-          v19:BasicObject = GetBlockParam :block, l1, EP@3
-          Jump bb6(v13, v19)
-        bb6(v21:BasicObject, v22:BasicObject):
+          v20:BasicObject = GetBlockParam :block, l1, EP@3
+          Jump bb6(v13, v20)
+        bb6(v22:BasicObject, v23:BasicObject):
           CheckInterrupts
-          Return v22
+          Return v23
         ");
     }
 
