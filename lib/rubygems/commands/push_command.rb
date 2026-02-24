@@ -92,14 +92,10 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
   private
 
   def send_push_request(name, args)
-    if RUBY_ENGINE == "jruby" || !attestation_supported_host?
-      return send_push_request_without_attestation(name, args)
-    end
-
-    begin
+    # Attestation is only supported on rubygems.org with GitHub Actions (not JRuby)
+    if RUBY_ENGINE != "jruby" && attestation_supported_host? && ENV["GITHUB_ACTIONS"]
       send_push_request_with_attestation(name, args)
-    rescue StandardError => e
-      alert_warning "Failed to push with attestation, retrying without attestation.\n#{e.full_message}"
+    else
       send_push_request_without_attestation(name, args)
     end
   end
@@ -137,6 +133,9 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
       ], "multipart/form-data")
       request.add_field "Authorization", api_key
     end
+  rescue StandardError => e
+    alert_warning "Failed to push with attestation, retrying without attestation.\n#{e.full_message}"
+    send_push_request_without_attestation(name, args)
   end
 
   def attest!(name)
