@@ -276,7 +276,7 @@ pull-github: fetch-github
 	$(call pull-github,$(PR))
 
 define pull-github
-	$(eval GITHUB_MERGE_BASE := $(shell $(GIT_LOG_FORMAT)%H -1)
+	$(eval GITHUB_MERGE_BASE := $(shell $(GIT) rev-parse HEAD)
 	$(eval GITHUB_MERGE_BRANCH := $(shell $(GIT_IN_SRC) symbolic-ref --short HEAD))
 	$(eval GITHUB_MERGE_WORKTREE := $(shell mktemp -d "$(srcdir)/gh-$(1)-XXXXXX"))
 	$(GIT_IN_SRC) worktree prune
@@ -434,7 +434,7 @@ ifneq ($(DOT_WAIT),)
 endif
 
 ifeq ($(HAVE_GIT),yes)
-REVISION_LATEST := $(shell $(GIT_LOG_FORMAT)%H -1 2>/dev/null)
+REVISION_LATEST := $(shell $(GIT) rev-parse HEAD)
 else
 REVISION_LATEST := update
 endif
