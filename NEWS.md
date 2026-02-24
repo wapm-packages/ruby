@@ -68,7 +68,7 @@ releases.
 
 ### The following bundled gems are updated.
 
-* minitest 6.0.1
+* minitest 6.0.2
 * test-unit 3.7.7
 * rss 0.3.2
 * net-imap 0.6.3
