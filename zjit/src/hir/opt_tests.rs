@@ -235,7 +235,6 @@ mod hir_opt_tests {
           v46:Fixnum[0] = Const Value(0)
           IncrCounter inline_cfunc_optimized_send_count
           v20:Fixnum[0] = Const Value(0)
-          PatchPoint MethodRedefined(Integer@0x1000, *@0x1008, cme:0x1010)
           v39:Fixnum = GuardType v9, Fixnum
           v47:Fixnum[0] = Const Value(0)
           IncrCounter inline_cfunc_optimized_send_count
@@ -6091,8 +6090,6 @@ mod hir_opt_tests {
           v23:HeapObject[class_exact*:Object@VALUE(0x1000)] = GuardType v6, HeapObject[class_exact*:Object@VALUE(0x1000)]
           IncrCounter inline_iseq_optimized_send_count
           v31:StaticSymbol[:b] = Const Value(VALUE(0x1038))
-          PatchPoint SingleRactorMode
-          PatchPoint NoSingletonClass(Object@0x1000)
           PatchPoint MethodRedefined(Object@0x1000, one@0x1040, cme:0x1048)
           v28:HeapObject[class_exact*:Object@VALUE(0x1000)] = GuardType v6, HeapObject[class_exact*:Object@VALUE(0x1000)]
           IncrCounter inline_iseq_optimized_send_count
@@ -8649,7 +8646,6 @@ mod hir_opt_tests {
           v20:CallableMethodEntry[VALUE(0x1040)] = GuardBitEquals v19, Value(VALUE(0x1040))
           v21:RubyValue = LoadField v18, :_ep_specval@0x1048
           v22:FalseClass = GuardBitEquals v21, Value(false)
-          PatchPoint MethodRedefined(Array@0x1000, pop@0x1008, cme:0x1010)
           v28:CPtr = GetLEP
           v29:RubyValue = LoadField v28, :_ep_method_entry@0x1038
           v30:CallableMethodEntry[VALUE(0x1040)] = GuardBitEquals v29, Value(VALUE(0x1040))
@@ -8693,7 +8689,6 @@ mod hir_opt_tests {
           v24:CallableMethodEntry[VALUE(0x1040)] = GuardBitEquals v23, Value(VALUE(0x1040))
           v25:RubyValue = LoadField v22, :_ep_specval@0x1048
           v26:FalseClass = GuardBitEquals v25, Value(false)
-          PatchPoint MethodRedefined(Array@0x1000, []@0x1008, cme:0x1010)
           v36:CPtr = GetLEP
           v37:RubyValue = LoadField v36, :_ep_method_entry@0x1038
           v38:CallableMethodEntry[VALUE(0x1040)] = GuardBitEquals v37, Value(VALUE(0x1040))
@@ -9916,7 +9911,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v25:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v29:TrueClass = Const Value(true)
           IncrCounter inline_cfunc_optimized_send_count
@@ -9951,7 +9945,6 @@ mod hir_opt_tests {
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v25:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
           PatchPoint MethodRedefined(C@0x1008, respond_to_missing?@0x1040, cme:0x1048)
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1070, cme:0x1078)
           v31:FalseClass = Const Value(false)
           IncrCounter inline_cfunc_optimized_send_count
@@ -9987,7 +9980,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v25:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v29:FalseClass = Const Value(false)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10024,7 +10016,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v27:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v31:FalseClass = Const Value(false)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10061,7 +10052,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v27:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v31:FalseClass = Const Value(false)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10098,7 +10088,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v27:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v31:TrueClass = Const Value(true)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10134,7 +10123,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v27:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v31:TrueClass = Const Value(true)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10170,7 +10158,6 @@ mod hir_opt_tests {
           PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v27:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1040, cme:0x1048)
           v31:TrueClass = Const Value(true)
           IncrCounter inline_cfunc_optimized_send_count
@@ -10205,7 +10192,6 @@ mod hir_opt_tests {
           PatchPoint MethodRedefined(C@0x1008, respond_to?@0x1010, cme:0x1018)
           v25:HeapObject[class_exact:C] = GuardType v9, HeapObject[class_exact:C]
           PatchPoint MethodRedefined(C@0x1008, respond_to_missing?@0x1040, cme:0x1048)
-          PatchPoint NoSingletonClass(C@0x1008)
           PatchPoint MethodRedefined(C@0x1008, foo@0x1070, cme:0x1078)
           v31:FalseClass = Const Value(false)
           IncrCounter inline_cfunc_optimized_send_count
