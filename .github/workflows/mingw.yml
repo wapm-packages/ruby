@@ -44,7 +44,7 @@ jobs:
         ) }}
       MINGW_PACKAGE_PREFIX: >-
         mingw-w${{
-        endsWith(matrix.msystem, '64') && '64' || '32'
+        case(endsWith(matrix.msystem, '64'), '64', '32')
         }}-${{ case(
         startsWith(matrix.msystem, 'clang'), 'clang',
         startsWith(matrix.msystem, 'ucrt'), 'ucrt',
