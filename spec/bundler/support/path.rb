@@ -50,7 +50,7 @@ module Spec
     end
 
     def bindir
-      @bindir ||= source_root.join(ruby_core? ? "spec/bin" : "bin")
+      @bindir ||= source_root.join(ruby_core? ? "spec/bin" : "../bin")
     end
 
     def exedir
