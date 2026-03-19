@@ -20,7 +20,7 @@ Dir.chdir(workdir) {
   mkpath(dirs)
   File.write('Makefile', [MakeMakefile.configuration(srcdir.to_s), <<~MAKEFILE].join(""))
     target = #{target}#{$EXEEXT}
-    objs = #{File.basename(target, '.*')}.#{$OBJEXT} #{objs.join(' ')}
+    objs = #{objs.join(' ')}
 
     $(target): $(objs)
     \t#{link} $(objs)
