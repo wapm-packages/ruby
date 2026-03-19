@@ -685,6 +685,7 @@ clean-local:: clean-runnable
 	$(Q)$(RM) probes.h probes.$(OBJEXT) probes.stamp ruby-glommed.$(OBJEXT) ruby.imp ChangeLog $(STATIC_RUBY)$(EXEEXT)
 	$(Q)$(RM) GNUmakefile.old Makefile.old $(arch)-fake.rb bisect.sh $(ENC_TRANS_D) builtin_binary.rbbin
 	$(Q)$(RM) $(PRISM_BUILD_DIR)/.time $(PRISM_BUILD_DIR)/*/.time yjit_exit_locations.dump
+	-$(Q)$(RMALL) dump_ast$(BUILD_EXEEXT)*
 	-$(Q)$(RMALL) target
 	-$(Q) $(RMDIR) enc/jis enc/trans enc $(COROUTINE_H:/Context.h=) coroutine target \
 	  $(PRISM_BUILD_DIR)/*/ $(PRISM_BUILD_DIR) tmp \
@@ -1330,6 +1331,11 @@ build-tool/Makefile: $(tooldir)/dump_ast.mkmf.rb
 	+$(BASERUBY) -s $(tooldir)/dump_ast.mkmf.rb -make="$(MAKE)" build-tool $(tooldir)/dump_ast.c $(LIBPRISM_OBJS)
 $(CROSS_COMPILING:yes=)dump_ast$(BUILD_EXEEXT): build-tool/Makefile
 	cd build-tool && $(MAKE)
+
+clean-local:: clean-build-tool
+clean-build-tool:
+	- cd build-tool && $(MAKE) clean 2> $(NULL) || $(NULLCMD)
+	- $(RMDIR) build-tool
 
 $(srcdir)/revision.h$(no_baseruby:no=~disabled~): $(REVISION_H)
 
