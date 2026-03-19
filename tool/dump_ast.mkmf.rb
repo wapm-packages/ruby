@@ -1,3 +1,4 @@
+#!ruby -s
 require 'mkmf'
 require 'pathname'
 require 'fileutils'
@@ -6,7 +7,7 @@ workdir, src, *objs = ARGV
 src = Pathname(src)
 tooldir = src.parent.relative_path_from(workdir)
 srcdir = tooldir.parent
-target = Pathname('.').relative_path_from(workdir) + src.basename.sub_ext('')
+target = src.basename.sub_ext('')
 dirs = objs.map {|obj| File.dirname(obj)}.uniq - %w[.]
 link = MakeMakefile::TRY_LINK.sub(MakeMakefile::CONFTEST+$EXEEXT, '$(@)')
 prismdir= "$(srcdir)/#{dirs.first}"
@@ -25,6 +26,7 @@ Dir.chdir(workdir) {
     $(target): $(objs)
     \t#{link} $(objs)
 
+    objs: $(objs)
     .c.#{$OBJEXT}:
     \t#{MakeMakefile::COMPILE_C}
 
