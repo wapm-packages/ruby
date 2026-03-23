@@ -251,9 +251,7 @@ static void rvalue_stack_free(void *ptr)
     rvalue_stack *stack = (rvalue_stack *)ptr;
     if (stack) {
         ruby_xfree(stack->ptr);
-#ifndef HAVE_RUBY_TYPED_EMBEDDABLE
         ruby_xfree(stack);
-#endif
     }
 }
 
@@ -264,13 +262,14 @@ static size_t rvalue_stack_memsize(const void *ptr)
 }
 
 static const rb_data_type_t JSON_Parser_rvalue_stack_type = {
-    .wrap_struct_name = "JSON::Ext::Parser/rvalue_stack",
-    .function = {
+    "JSON::Ext::Parser/rvalue_stack",
+    {
         .dmark = rvalue_stack_mark,
         .dfree = rvalue_stack_free,
         .dsize = rvalue_stack_memsize,
     },
-    .flags = RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_EMBEDDABLE,
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY,
 };
 
 static rvalue_stack *rvalue_stack_spill(rvalue_stack *old_stack, VALUE *handle, rvalue_stack **stack_ref)
@@ -1609,9 +1608,7 @@ static void JSON_ParserConfig_mark(void *ptr)
 static void JSON_ParserConfig_free(void *ptr)
 {
     JSON_ParserConfig *config = ptr;
-#ifndef HAVE_RUBY_TYPED_EMBEDDABLE
     ruby_xfree(config);
-#endif
 }
 
 static size_t JSON_ParserConfig_memsize(const void *ptr)
@@ -1620,13 +1617,14 @@ static size_t JSON_ParserConfig_memsize(const void *ptr)
 }
 
 static const rb_data_type_t JSON_ParserConfig_type = {
-    .wrap_struct_name = "JSON::Ext::Parser/ParserConfig",
-    .function = {
+    "JSON::Ext::Parser/ParserConfig",
+    {
         JSON_ParserConfig_mark,
         JSON_ParserConfig_free,
         JSON_ParserConfig_memsize,
     },
-    .flags = RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED | RUBY_TYPED_FROZEN_SHAREABLE | RUBY_TYPED_EMBEDDABLE,
+    0, 0,
+    RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_WB_PROTECTED | RUBY_TYPED_FROZEN_SHAREABLE,
 };
 
 static VALUE cJSON_parser_s_allocate(VALUE klass)

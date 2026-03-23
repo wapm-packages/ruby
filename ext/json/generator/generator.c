@@ -722,20 +722,27 @@ static void State_compact(void *ptr)
     state->as_json = rb_gc_location(state->as_json);
 }
 
+static void State_free(void *ptr)
+{
+    JSON_Generator_State *state = ptr;
+    ruby_xfree(state);
+}
+
 static size_t State_memsize(const void *ptr)
 {
     return sizeof(JSON_Generator_State);
 }
 
 static const rb_data_type_t JSON_Generator_State_type = {
-    .wrap_struct_name = "JSON/Generator/State",
-    .function = {
+    "JSON/Generator/State",
+    {
         .dmark = State_mark,
-        .dfree = RUBY_DEFAULT_FREE,
+        .dfree = State_free,
         .dsize = State_memsize,
         .dcompact = State_compact,
     },
-    .flags = RUBY_TYPED_WB_PROTECTED | RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_FROZEN_SHAREABLE | RUBY_TYPED_EMBEDDABLE,
+    0, 0,
+    RUBY_TYPED_WB_PROTECTED | RUBY_TYPED_FREE_IMMEDIATELY | RUBY_TYPED_FROZEN_SHAREABLE,
 };
 
 static void state_init(JSON_Generator_State *state)
