@@ -1590,12 +1590,6 @@ rb_gc_impl_get_measure_total_time(void *objspace_ptr)
     return objspace->flags.measure_gc;
 }
 
-static size_t
-minimum_slots_for_heap(rb_objspace_t *objspace, rb_heap_t *heap)
-{
-    return gc_params.heap_init_bytes / heap->slot_size;
-}
-
 /* garbage objects will be collected soon. */
 bool
 rb_gc_impl_garbage_object_p(void *objspace_ptr, VALUE ptr)
