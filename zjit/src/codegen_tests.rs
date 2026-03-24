@@ -4508,6 +4508,84 @@ fn test_opt_case_dispatch() {
 }
 
 #[test]
+fn test_checkmatch_case() {
+    eval(r#"
+        def test(o)
+          case o
+          in Integer
+            1
+          else
+            2
+          end
+        end
+    "#);
+    assert_contains_opcode("test", YARVINSN_checkmatch);
+    assert_snapshot!(inspect(r#"[test(1), test(2), test("3")]"#), @"[1, 1, 2]");
+}
+
+#[test]
+fn test_checkmatch_case_splat_array() {
+    eval(r#"
+        def test(o)
+          case o
+          when *[1, 2]
+            1
+          else
+            2
+          end
+        end
+    "#);
+    assert_contains_opcode("test", YARVINSN_checkmatch);
+    assert_snapshot!(inspect("[test(1), test(2), test(3)]"), @"[1, 1, 2]");
+}
+
+#[test]
+fn test_checkmatch_when_splat_array() {
+    eval(r#"
+        def test
+          case
+          when *[1, 2]
+            1
+          else
+            2
+          end
+        end
+    "#);
+    assert_contains_opcode("test", YARVINSN_checkmatch);
+    assert_snapshot!(inspect("[test, test]"), @"[1, 1]");
+}
+
+#[test]
+fn test_checkmatch_rescue() {
+    // Rescue behavior is tested functionally here. It still side-exits because
+    // JIT exception handling is not supported yet.
+    eval(r#"
+        def test
+          begin
+            raise TypeError
+          rescue TypeError
+            1
+          end
+        end
+    "#);
+    assert_snapshot!(inspect("[test, test]"), @"[1, 1]");
+}
+
+#[test]
+fn test_checkmatch_rescue_splat_array() {
+    eval(r#"
+        def test
+          begin
+            raise TypeError
+          rescue *[TypeError, ArgumentError]
+            1
+          end
+        end
+    "#);
+    assert_snapshot!(inspect("[test, test]"), @"[1, 1]");
+}
+
+#[test]
 fn test_stack_overflow() {
     assert_snapshot!(inspect("
         def recurse(n)
