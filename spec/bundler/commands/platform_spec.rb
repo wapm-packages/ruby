@@ -600,8 +600,8 @@ G
 
     it "updates fine even when patchlevel doesn't match" do
       gemfile <<-G
-        source "https://gem.repo1"
-        gem "myrack"
+        source "https://gem.repo2"
+        gem "activesupport"
 
         #{patchlevel_incorrect}
       G
@@ -611,7 +611,7 @@ G
 
       bundle :update, all: true
       should_ignore_patchlevel
-      expect(the_bundle).to include_gems "myrack 1.2", "activesupport 3.0"
+      expect(the_bundle).to include_gems "activesupport 3.0"
     end
   end
 
@@ -686,17 +686,14 @@ G
     it "prints path even when patchlevel doesn't match" do
       gemfile <<-G
         source "https://gem.repo1"
-        gem "myrack"
+        gem "rails"
 
         #{patchlevel_incorrect}
       G
-      update_repo2 do
-        build_gem "activesupport", "3.0"
-      end
 
-      bundle "show myrack"
+      bundle "show rails"
       should_ignore_patchlevel
-      expect(out).to eq(default_bundle_path("gems", "myrack-1.0.0").to_s)
+      expect(out).to eq(default_bundle_path("gems", "rails-2.3.2").to_s)
     end
   end
 
