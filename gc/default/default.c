@@ -7630,6 +7630,7 @@ enum gc_stat_heap_sym {
     gc_stat_heap_sym_total_allocated_pages,
     gc_stat_heap_sym_force_major_gc_count,
     gc_stat_heap_sym_force_incremental_marking_finish_count,
+    gc_stat_heap_sym_heap_allocatable_slots,
     gc_stat_heap_sym_total_allocated_objects,
     gc_stat_heap_sym_total_freed_objects,
     gc_stat_heap_sym_last
@@ -7648,6 +7649,7 @@ setup_gc_stat_heap_symbols(void)
         S(heap_final_slots);
         S(heap_eden_pages);
         S(heap_eden_slots);
+        S(heap_allocatable_slots);
         S(total_allocated_pages);
         S(force_major_gc_count);
         S(force_incremental_marking_finish_count);
@@ -7658,7 +7660,7 @@ setup_gc_stat_heap_symbols(void)
 }
 
 static VALUE
-stat_one_heap(rb_heap_t *heap, VALUE hash, VALUE key)
+stat_one_heap(rb_objspace_t *objspace, rb_heap_t *heap, VALUE hash, VALUE key)
 {
 #define SET(name, attr) \
     if (key == gc_stat_heap_symbols[gc_stat_heap_sym_##name]) \
@@ -7672,6 +7674,7 @@ stat_one_heap(rb_heap_t *heap, VALUE hash, VALUE key)
     SET(heap_final_slots, heap->final_slots_count);
     SET(heap_eden_pages, heap->total_pages);
     SET(heap_eden_slots, heap->total_slots);
+    SET(heap_allocatable_slots, objspace->heap_pages.allocatable_bytes / heap->slot_size);
     SET(total_allocated_pages, heap->total_allocated_pages);
     SET(force_major_gc_count, heap->force_major_gc_count);
     SET(force_incremental_marking_finish_count, heap->force_incremental_marking_finish_count);
@@ -7708,7 +7711,7 @@ rb_gc_impl_stat_heap(void *objspace_ptr, VALUE heap_name, VALUE hash_or_sym)
                 rb_hash_aset(hash_or_sym, INT2FIX(i), hash);
             }
 
-            stat_one_heap(&heaps[i], hash, Qnil);
+            stat_one_heap(objspace, &heaps[i], hash, Qnil);
         }
     }
     else if (FIXNUM_P(heap_name)) {
@@ -7719,10 +7722,10 @@ rb_gc_impl_stat_heap(void *objspace_ptr, VALUE heap_name, VALUE hash_or_sym)
         }
 
         if (SYMBOL_P(hash_or_sym)) {
-            return stat_one_heap(&heaps[heap_idx], Qnil, hash_or_sym);
+            return stat_one_heap(objspace, &heaps[heap_idx], Qnil, hash_or_sym);
         }
         else if (RB_TYPE_P(hash_or_sym, T_HASH)) {
-            return stat_one_heap(&heaps[heap_idx], hash_or_sym, Qnil);
+            return stat_one_heap(objspace, &heaps[heap_idx], hash_or_sym, Qnil);
         }
         else {
             rb_bug("non-hash or symbol given");

@@ -320,7 +320,7 @@ class TestGc < Test::Unit::TestCase
 
     assert_separately([{"RUBY_GC_HEAP_INIT_BYTES" => "409600"}, "-W0"], __FILE__, __LINE__, <<-'RUBY')
       GC.start
-      count = GC.stat(:heap_free_slots) + GC.stat(:heap_allocatable_bytes) / GC.stat_heap(0, :slot_size)
+      count = GC.stat(:heap_free_slots) + GC.stat_heap(0, :heap_allocatable_slots)
       count.times{ "a" + "b" }
       assert_equal :newobj, GC.latest_gc_info[:gc_by]
     RUBY
