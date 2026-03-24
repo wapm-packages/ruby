@@ -1237,7 +1237,7 @@ G
       should_be_engine_version_incorrect
     end
 
-    it "fails when the patchlevel doesn't match", :jruby_only do
+    it "reports outdated gems even when patchlevel doesn't match" do
       update_repo2 do
         build_gem "activesupport", "3.0"
         update_git "foo", path: lib_path("foo")
@@ -1252,32 +1252,9 @@ G
       G
 
       bundle "outdated", raise_on_error: false
-      should_ignore_patchlevel
-      expected_output = <<~TABLE.gsub("x", "\\\h").tr(".", "\.").strip
-        Gem            Current      Latest       Requested  Groups
-        activesupport  2.3.5        3.0          = 2.3.5    default
-        foo            1.0 xxxxxxx  1.0 xxxxxxx  >= 0       default
-      TABLE
-
-      expect(out).to match(Regexp.new(expected_output))
-    end
-
-    it "fails when the patchlevel is a fixnum", :jruby_only do
-      update_repo2 do
-        build_gem "activesupport", "3.0"
-        update_git "foo", path: lib_path("foo")
-      end
-
-      gemfile <<-G
-        source "https://gem.repo2"
-        gem "activesupport", "2.3.5"
-        gem "foo", :git => "#{lib_path("foo")}"
-
-        #{patchlevel_fixnum}
-      G
-
-      bundle "outdated", raise_on_error: false
-      should_be_patchlevel_fixnum
+      expect(err).not_to include("patchlevel")
+      expect(out).to include("activesupport")
+      expect(out).to include("foo")
     end
   end
 end
