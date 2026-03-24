@@ -241,8 +241,10 @@ static void rvalue_stack_mark(void *ptr)
 {
     rvalue_stack *stack = (rvalue_stack *)ptr;
     long index;
-    for (index = 0; index < stack->head; index++) {
-        rb_gc_mark(stack->ptr[index]);
+    if (stack && stack->ptr) {
+        for (index = 0; index < stack->head; index++) {
+            rb_gc_mark(stack->ptr[index]);
+        }
     }
 }
 
