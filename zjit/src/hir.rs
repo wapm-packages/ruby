@@ -795,6 +795,7 @@ pub enum Insn {
     ArrayDup { val: InsnId, state: InsnId },
     ArrayHash { elements: Vec<InsnId>, state: InsnId },
     ArrayMax { elements: Vec<InsnId>, state: InsnId },
+    ArrayMin { elements: Vec<InsnId>, state: InsnId },
     ArrayInclude { elements: Vec<InsnId>, target: InsnId, state: InsnId },
     ArrayPackBuffer { elements: Vec<InsnId>, fmt: InsnId, buffer: InsnId, state: InsnId },
     DupArrayInclude { ary: VALUE, target: InsnId, state: InsnId },
@@ -1130,6 +1131,7 @@ macro_rules! for_each_operand_impl {
                 $visit_one!(val);
             }
             Insn::ArrayMax { elements, state, .. }
+            | Insn::ArrayMin { elements, state, .. }
             | Insn::ArrayHash { elements, state, .. }
             | Insn::NewHash { elements, state, .. }
             | Insn::NewArray { elements, state, .. } => {
@@ -1473,6 +1475,7 @@ impl Insn {
             Insn::ArrayDup { .. } => allocates,
             Insn::ArrayHash { .. } => effects::Any,
             Insn::ArrayMax { .. } => effects::Any,
+            Insn::ArrayMin { .. } => effects::Any,
             Insn::ArrayInclude { .. } => effects::Any,
             Insn::ArrayPackBuffer { .. } => effects::Any,
             Insn::DupArrayInclude { .. } => effects::Any,
@@ -1746,6 +1749,15 @@ impl<'a> std::fmt::Display for InsnPrinter<'a> {
             }
             Insn::ArrayMax { elements, .. } => {
                 write!(f, "ArrayMax")?;
+                let mut prefix = " ";
+                for element in elements {
+                    write!(f, "{prefix}{element}")?;
+                    prefix = ", ";
+                }
+                Ok(())
+            }
+            Insn::ArrayMin { elements, .. } => {
+                write!(f, "ArrayMin")?;
                 let mut prefix = " ";
                 for element in elements {
                     write!(f, "{prefix}{element}")?;
@@ -2829,6 +2841,7 @@ impl Function {
             &ArrayLength { array } => ArrayLength { array: find!(array) },
             &AdjustBounds { index, length } => AdjustBounds { index: find!(index), length: find!(length) },
             &ArrayMax { ref elements, state } => ArrayMax { elements: find_vec!(elements), state: find!(state) },
+            &ArrayMin { ref elements, state } => ArrayMin { elements: find_vec!(elements), state: find!(state) },
             &ArrayInclude { ref elements, target, state } => ArrayInclude { elements: find_vec!(elements), target: find!(target), state: find!(state) },
             &ArrayPackBuffer { ref elements, fmt, buffer, state } => ArrayPackBuffer { elements: find_vec!(elements), fmt: find!(fmt), buffer: find!(buffer), state: find!(state) },
             &DupArrayInclude { ary, target, state } => DupArrayInclude { ary, target: find!(target), state: find!(state) },
@@ -2998,6 +3011,7 @@ impl Function {
             Insn::IsBlockGiven { .. } => types::BoolExact,
             Insn::FixnumBitCheck { .. } => types::BoolExact,
             Insn::ArrayMax { .. } => types::BasicObject,
+            Insn::ArrayMin { .. } => types::BasicObject,
             Insn::ArrayInclude { .. } => types::BoolExact,
             Insn::ArrayPackBuffer { .. } => types::String,
             Insn::DupArrayInclude { .. } => types::BoolExact,
@@ -6068,6 +6082,7 @@ impl Function {
             Insn::InvokeBlock { ref args, .. }
             | Insn::NewArray { elements: ref args, .. }
             | Insn::ArrayHash { elements: ref args, .. }
+            | Insn::ArrayMin { elements: ref args, .. }
             | Insn::ArrayMax { elements: ref args, .. } => {
                 for &arg in args {
                     self.assert_subtype(insn_id, arg, types::BasicObject)?;
@@ -7023,6 +7038,10 @@ pub fn iseq_to_hir(iseq: *const rb_iseq_t) -> Result<Function, ParseError> {
                         VM_OPT_NEWARRAY_SEND_MAX => {
                             let elements = state.stack_pop_n(count)?;
                             (BOP_MAX, Insn::ArrayMax { elements, state: exit_id })
+                        }
+                        VM_OPT_NEWARRAY_SEND_MIN => {
+                            let elements = state.stack_pop_n(count)?;
+                            (BOP_MIN, Insn::ArrayMin { elements, state: exit_id })
                         }
                         VM_OPT_NEWARRAY_SEND_HASH => {
                             let elements = state.stack_pop_n(count)?;
