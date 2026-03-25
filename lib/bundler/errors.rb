@@ -274,30 +274,31 @@ module Bundler
     end
 
     def message
-      msg = "Bundler found incorrect dependencies in the lockfile for #{spec.full_name}\n"
+      lines = ["Bundler found incorrect dependencies in the lockfile for #{spec.full_name}", ""]
 
       if @actual_dependencies && @lockfile_dependencies
         actual_by_name = @actual_dependencies.each_with_object({}) {|d, h| h[d.name] = d }
         lockfile_by_name = @lockfile_dependencies.each_with_object({}) {|d, h| h[d.name] = d }
-        all_names = (actual_by_name.keys | lockfile_by_name.keys).sort
 
-        all_names.each do |name|
+        (actual_by_name.keys | lockfile_by_name.keys).sort.each do |name|
           actual = actual_by_name[name]
           lockfile = lockfile_by_name[name]
           next if actual && lockfile && actual.requirement == lockfile.requirement
 
           if actual && lockfile
-            msg << "  #{name}: gemspec specifies #{actual.requirement}, lockfile has #{lockfile.requirement}\n"
+            lines << "  #{name}: gemspec specifies #{actual.requirement}, lockfile has #{lockfile.requirement}"
           elsif actual
-            msg << "  #{name}: gemspec specifies #{actual.requirement}, not in lockfile\n"
+            lines << "  #{name}: gemspec specifies #{actual.requirement}, not in lockfile"
           else
-            msg << "  #{name}: not in gemspec, lockfile has #{lockfile.requirement}\n"
+            lines << "  #{name}: not in gemspec, lockfile has #{lockfile.requirement}"
           end
         end
+
+        lines << ""
       end
 
-      msg << "Please run `bundle install` to regenerate the lockfile."
-      msg
+      lines << "Please run `bundle install` to regenerate the lockfile."
+      lines.join("\n")
     end
 
     status_code(41)
