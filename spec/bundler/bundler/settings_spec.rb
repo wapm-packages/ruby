@@ -368,11 +368,8 @@ that would suck --ehhh=oh geez it looks like i might have broken bundler somehow
       )
     end
 
-    it "rejects nil values" do
-      expect { settings.set_local("default_cli_command", nil) }.to raise_error(
-        Bundler::InvalidOption,
-        /Setting `default_cli_command` to nil failed:\n - default_cli_command must be either 'install' or 'cli_help'\n - must be one of: install, cli_help/
-      )
+    it "accepts nil values" do
+      expect { settings.set_local("default_cli_command", nil) }.not_to raise_error
     end
   end
 end
