@@ -218,23 +218,24 @@ RSpec.describe Bundler::Plugin::Index do
       expect(data["load_paths"][plugin_name]).to eq([File.join(plugin_name, "lib")])
     end
 
-    it "expands relative paths when the plugin root changes" do
-      old_index_file = index.index_file
+    it "expands relative paths to absolute on load" do
+      require_relative "../../../bundler/lib/bundler/yaml_serializer"
 
-      new_root = tmp.join("moved_plugin_root")
-      FileUtils.mkdir_p(new_root)
-      FileUtils.cp(old_index_file, new_root.join("index"))
+      plugin_root = Bundler::Plugin.root
 
-      Bundler::Plugin.reset!
-      Bundler::Plugin.instance_variable_set(:@root, nil)
-      allow(Bundler::SharedHelpers).to receive(:find_gemfile).and_return(bundled_app_gemfile)
-      allow(Bundler::Plugin).to receive(:root).and_return(new_root)
-      allow(Bundler::Plugin).to receive(:local_root).and_return(new_root)
+      relative_index = {
+        "commands" => {},
+        "hooks" => {},
+        "load_paths" => { plugin_name => [File.join(plugin_name, "lib")] },
+        "plugin_paths" => { plugin_name => plugin_name },
+        "sources" => {},
+      }
+
+      File.open(index.index_file, "w") {|f| f.puts Bundler::YAMLSerializer.dump(relative_index) }
 
       new_index = Index.new
-
-      expect(new_index.plugin_path(plugin_name)).to eq(new_root.join(plugin_name))
-      expect(new_index.load_paths(plugin_name)).to eq([new_root.join(plugin_name, "lib").to_s])
+      expect(new_index.plugin_path(plugin_name)).to eq(plugin_root.join(plugin_name))
+      expect(new_index.load_paths(plugin_name)).to eq([plugin_root.join(plugin_name, "lib").to_s])
     end
 
     it "keeps paths outside the plugin root as absolute" do
