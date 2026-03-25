@@ -75,7 +75,7 @@ releases.
 
 * RubyGems 4.1.0.dev
 * bundler 4.1.0.dev
-* json 2.19.2
+* json 2.19.3
   * 2.18.0 to [v2.18.1][json-v2.18.1], [v2.19.0][json-v2.19.0], [v2.19.1][json-v2.19.1], [v2.19.2][json-v2.19.2]
 * openssl 4.0.1
   * 4.0.0 to [v4.0.1][openssl-v4.0.1]
