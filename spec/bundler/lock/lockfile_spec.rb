@@ -1609,10 +1609,7 @@ RSpec.describe "the lockfile format" do
     G
 
     expect(err).to include("Bundler found incorrect dependencies in the lockfile for myrack_middleware-1.0")
-    expect(err).to include("The gemspec for myrack_middleware-1.0 specifies the following dependencies:")
-    expect(err).to include("myrack (= 0.9.1)")
-    expect(err).to include("However, the lockfile has the following dependencies recorded:")
-    expect(err).to include("(none)")
+    expect(err).to include("myrack: gemspec specifies = 0.9.1, not in lockfile")
     expect(the_bundle).not_to include_gems "myrack_middleware 1.0"
   end
 

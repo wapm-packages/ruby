@@ -78,12 +78,8 @@ In Gemfile:
       bundle :install, raise_on_error: false, env: { "BUNDLE_FROZEN" => "true" }
 
       expect(err).to include("Bundler found incorrect dependencies in the lockfile for myrack-1.0.0")
-      expect(err).to include("The gemspec for myrack-1.0.0 specifies the following dependencies:")
-      expect(err).to include("myrack-test (~> 1.0)")
-      expect(err).to include("However, the lockfile has the following dependencies recorded:")
-      expect(err).to include("(none)")
-      expect(err).to include("This discrepancy may be caused by manually editing the lockfile.")
-      expect(err).to include("Please run `bundle install` to regenerate the lockfile with correct dependencies.")
+      expect(err).to include("myrack-test: gemspec specifies ~> 1.0, not in lockfile")
+      expect(err).to include("Please run `bundle install` to regenerate the lockfile.")
     end
   end
 end

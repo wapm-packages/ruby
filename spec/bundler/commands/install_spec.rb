@@ -1659,10 +1659,7 @@ RSpec.describe "bundle install with gem sources" do
 
       expect(exitstatus).to eq(41)
       expect(err).to include("Bundler found incorrect dependencies in the lockfile for myrack_middleware-1.0")
-      expect(err).to include("The gemspec for myrack_middleware-1.0 specifies the following dependencies:")
-      expect(err).to include("myrack (= 0.9.1)")
-      expect(err).to include("However, the lockfile has the following dependencies recorded:")
-      expect(err).to include("(none)")
+      expect(err).to include("myrack: gemspec specifies = 0.9.1, not in lockfile")
     end
 
     it "updates the lockfile when not frozen" do

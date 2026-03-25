@@ -34,19 +34,12 @@ RSpec.describe Bundler::IncorrectLockfileDependencies do
 
       subject { described_class.new(spec, actual_dependencies, lockfile_dependencies) }
 
-      it "provides a detailed error message showing the discrepancy" do
+      it "shows only mismatched dependencies" do
         message = subject.message
 
-        expect(message).to include("Bundler found incorrect dependencies in the lockfile for rubocop-1.82.0")
-        expect(message).to include("The gemspec for rubocop-1.82.0 specifies the following dependencies:")
-        expect(message).to include("json (>= 2.3, < 4.0)")
-        expect(message).to include("parallel (~> 1.10)")
-        expect(message).to include("parser (>= 3.3.0.2)")
-        expect(message).to include("However, the lockfile has the following dependencies recorded:")
-        expect(message).to include("json (>= 2.3, < 3.0)")
-        expect(message).to include("parser (>= 3.2.0.0)")
-        expect(message).to include("This discrepancy may be caused by manually editing the lockfile.")
-        expect(message).to include("Please run `bundle install` to regenerate the lockfile with correct dependencies.")
+        expect(message).to include("json: gemspec specifies")
+        expect(message).to include("parser: gemspec specifies")
+        expect(message).not_to include("parallel")
       end
     end
 
@@ -61,13 +54,10 @@ RSpec.describe Bundler::IncorrectLockfileDependencies do
 
       subject { described_class.new(spec, actual_dependencies, lockfile_dependencies) }
 
-      it "shows that lockfile has no dependencies" do
+      it "shows the dependency as not in lockfile" do
         message = subject.message
 
-        expect(message).to include("The gemspec for rubocop-1.82.0 specifies the following dependencies:")
-        expect(message).to include("myrack-test (~> 1.0)")
-        expect(message).to include("However, the lockfile has the following dependencies recorded:")
-        expect(message).to include("(none)")
+        expect(message).to include("myrack-test: gemspec specifies ~> 1.0, not in lockfile")
       end
     end
 
@@ -82,13 +72,10 @@ RSpec.describe Bundler::IncorrectLockfileDependencies do
 
       subject { described_class.new(spec, actual_dependencies, lockfile_dependencies) }
 
-      it "shows that gemspec has no dependencies" do
+      it "shows the dependency as not in gemspec" do
         message = subject.message
 
-        expect(message).to include("The gemspec for rubocop-1.82.0 specifies the following dependencies:")
-        expect(message).to include("(none)")
-        expect(message).to include("However, the lockfile has the following dependencies recorded:")
-        expect(message).to include("unexpected (~> 1.0)")
+        expect(message).to include("unexpected: not in gemspec, lockfile has ~> 1.0")
       end
     end
   end

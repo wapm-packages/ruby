@@ -277,33 +277,26 @@ module Bundler
       msg = "Bundler found incorrect dependencies in the lockfile for #{spec.full_name}\n"
 
       if @actual_dependencies && @lockfile_dependencies
-        msg << "\n"
-        msg << "The gemspec for #{spec.full_name} specifies the following dependencies:\n"
-        if @actual_dependencies.empty?
-          msg << "  (none)\n"
-        else
-          @actual_dependencies.sort_by(&:to_s).each do |dep|
-            msg << "  #{dep}\n"
+        actual_by_name = @actual_dependencies.each_with_object({}) {|d, h| h[d.name] = d }
+        lockfile_by_name = @lockfile_dependencies.each_with_object({}) {|d, h| h[d.name] = d }
+        all_names = (actual_by_name.keys | lockfile_by_name.keys).sort
+
+        all_names.each do |name|
+          actual = actual_by_name[name]
+          lockfile = lockfile_by_name[name]
+          next if actual && lockfile && actual.requirement == lockfile.requirement
+
+          if actual && lockfile
+            msg << "  #{name}: gemspec specifies #{actual.requirement}, lockfile has #{lockfile.requirement}\n"
+          elsif actual
+            msg << "  #{name}: gemspec specifies #{actual.requirement}, not in lockfile\n"
+          else
+            msg << "  #{name}: not in gemspec, lockfile has #{lockfile.requirement}\n"
           end
         end
-
-        msg << "\n"
-        msg << "However, the lockfile has the following dependencies recorded:\n"
-        if @lockfile_dependencies.empty?
-          msg << "  (none)\n"
-        else
-          @lockfile_dependencies.sort_by(&:to_s).each do |dep|
-            msg << "  #{dep}\n"
-          end
-        end
-
-        msg << "\n"
-        msg << "This discrepancy may be caused by manually editing the lockfile.\n"
-        msg << "Please run `bundle install` to regenerate the lockfile with correct dependencies."
-      else
-        msg << "\nPlease run `bundle install` to regenerate the lockfile."
       end
 
+      msg << "Please run `bundle install` to regenerate the lockfile."
       msg
     end
 
