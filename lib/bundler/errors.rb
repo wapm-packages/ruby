@@ -265,14 +265,46 @@ module Bundler
   class InvalidArgumentError < BundlerError; status_code(40); end
 
   class IncorrectLockfileDependencies < BundlerError
-    attr_reader :spec
+    attr_reader :spec, :actual_dependencies, :lockfile_dependencies
 
-    def initialize(spec)
+    def initialize(spec, actual_dependencies = nil, lockfile_dependencies = nil)
       @spec = spec
+      @actual_dependencies = actual_dependencies
+      @lockfile_dependencies = lockfile_dependencies
     end
 
     def message
-      "Bundler found incorrect dependencies in the lockfile for #{spec.full_name}"
+      msg = "Bundler found incorrect dependencies in the lockfile for #{spec.full_name}\n"
+
+      if @actual_dependencies && @lockfile_dependencies
+        msg << "\n"
+        msg << "The gemspec for #{spec.full_name} specifies the following dependencies:\n"
+        if @actual_dependencies.empty?
+          msg << "  (none)\n"
+        else
+          @actual_dependencies.sort_by(&:to_s).each do |dep|
+            msg << "  #{dep}\n"
+          end
+        end
+
+        msg << "\n"
+        msg << "However, the lockfile has the following dependencies recorded:\n"
+        if @lockfile_dependencies.empty?
+          msg << "  (none)\n"
+        else
+          @lockfile_dependencies.sort_by(&:to_s).each do |dep|
+            msg << "  #{dep}\n"
+          end
+        end
+
+        msg << "\n"
+        msg << "This discrepancy may be caused by manually editing the lockfile.\n"
+        msg << "Please run `bundle install` to regenerate the lockfile with correct dependencies."
+      else
+        msg << "\nPlease run `bundle install` to regenerate the lockfile."
+      end
+
+      msg
     end
 
     status_code(41)
