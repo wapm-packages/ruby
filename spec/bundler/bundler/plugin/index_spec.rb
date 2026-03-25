@@ -219,7 +219,7 @@ RSpec.describe Bundler::Plugin::Index do
     end
 
     it "expands relative paths to absolute on load" do
-      require_relative "../../../bundler/lib/bundler/yaml_serializer"
+      require "bundler/yaml_serializer"
 
       plugin_root = Bundler::Plugin.root
 
@@ -252,7 +252,7 @@ RSpec.describe Bundler::Plugin::Index do
     end
 
     it "reads legacy index files with absolute paths" do
-      require_relative "../../../bundler/lib/bundler/yaml_serializer"
+      require "bundler/yaml_serializer"
 
       plugin_root = Bundler::Plugin.root
       absolute_path = plugin_root.join(plugin_name).to_s
