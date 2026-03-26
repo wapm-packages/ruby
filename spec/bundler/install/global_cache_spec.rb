@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
 RSpec.describe "global gem caching" do
-  before { bundle_config "global_gem_cache true" }
+  # Uses subprocess because this setting must apply across multiple app directories (bundled_app and bundled_app2)
+  before { bundle "config set global_gem_cache true" }
 
   describe "using the cross-application user cache" do
     let(:source)  { "http://localgemserver.test" }
