@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 RSpec.describe "global gem caching" do
-  before { config "global_gem_cache true" }
+  before { bundle_config "global_gem_cache true" }
 
   describe "using the cross-application user cache" do
     let(:source)  { "http://localgemserver.test" }
@@ -96,7 +96,7 @@ RSpec.describe "global gem caching" do
 
     describe "when the same gem from different sources is installed" do
       it "should use the appropriate one from the global cache" do
-        config "path.system true"
+        bundle_config "path.system true"
 
         install_gemfile <<-G, artifice: "compact_index"
           source "#{source}"
@@ -141,7 +141,7 @@ RSpec.describe "global gem caching" do
       end
 
       it "should not install if the wrong source is provided" do
-        config "path.system true"
+        bundle_config "path.system true"
 
         gemfile <<-G
           source "#{source}"
@@ -199,7 +199,7 @@ RSpec.describe "global gem caching" do
 
     describe "when installing gems from a different directory" do
       it "uses the global cache as a source" do
-        config "path.system true"
+        bundle_config "path.system true"
 
         install_gemfile <<-G, artifice: "compact_index"
           source "#{source}"
@@ -289,7 +289,7 @@ RSpec.describe "global gem caching" do
       gem_binary_cache.join("very_simple_binary_c.rb").open("w") {|f| f << "puts File.basename(__FILE__)" }
       git_binary_cache.join("very_simple_git_binary_c.rb").open("w") {|f| f << "puts File.basename(__FILE__)" }
 
-      config "path different_path"
+      bundle_config "path different_path"
       bundle :install
 
       expect(Dir[home(".bundle", "cache", "extensions", "**", "*binary_c*")]).to all(end_with(".rb"))

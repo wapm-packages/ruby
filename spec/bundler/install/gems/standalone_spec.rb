@@ -125,7 +125,7 @@ RSpec.describe "bundle install --standalone" do
         source "https://gem.repo1"
         gem "rails"
       G
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       bundle :install, standalone: true, dir: cwd
     end
 
@@ -164,7 +164,7 @@ RSpec.describe "bundle install --standalone" do
 
       bundle "lock", dir: cwd
 
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
 
       bundle :install, standalone: true, dir: cwd, env: { "BUNDLER_GEM_DEFAULT_DIR" => system_gem_path.to_s }
 
@@ -191,7 +191,7 @@ RSpec.describe "bundle install --standalone" do
           gem "baz"
         G
 
-        config "path #{bundled_app("bundle")}"
+        bundle_config "path #{bundled_app("bundle")}"
 
         bundle "lock", dir: cwd
 
@@ -270,7 +270,7 @@ RSpec.describe "bundle install --standalone" do
 
   describe "with gems with native extension" do
     before do
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       install_gemfile <<-G, standalone: true, dir: cwd
         source "https://gem.repo1"
         gem "very_simple_binary"
@@ -308,7 +308,7 @@ RSpec.describe "bundle install --standalone" do
           end
         G
       end
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       install_gemfile <<-G, standalone: true, dir: cwd, raise_on_error: false
         source "https://gem.repo1"
         gem "bar", :git => "#{lib_path("bar-1.0")}"
@@ -330,7 +330,7 @@ RSpec.describe "bundle install --standalone" do
         gem "rails"
         gem "devise", :git => "#{lib_path("devise-1.0")}"
       G
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       bundle :install, standalone: true, dir: cwd
     end
 
@@ -358,7 +358,7 @@ RSpec.describe "bundle install --standalone" do
           gem "myrack-test"
         end
       G
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       bundle :install, standalone: true, dir: cwd
     end
 
@@ -372,7 +372,7 @@ RSpec.describe "bundle install --standalone" do
     include_examples "common functionality"
 
     it "allows creating a standalone file with limited groups" do
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       bundle :install, standalone: "default", dir: cwd
 
       load_error_ruby <<-RUBY, "spec"
@@ -389,8 +389,8 @@ RSpec.describe "bundle install --standalone" do
     end
 
     it "allows `without` configuration to limit the groups used in a standalone" do
-      config "path #{bundled_app("bundle")}"
-      config "without test"
+      bundle_config "path #{bundled_app("bundle")}"
+      bundle_config "without test"
       bundle :install, standalone: true, dir: cwd
 
       load_error_ruby <<-RUBY, "spec"
@@ -407,7 +407,7 @@ RSpec.describe "bundle install --standalone" do
     end
 
     it "allows `path` configuration to change the location of the standalone bundle" do
-      config "path path/to/bundle"
+      bundle_config "path path/to/bundle"
       bundle "install", standalone: true, dir: cwd
 
       ruby <<-RUBY
@@ -422,9 +422,9 @@ RSpec.describe "bundle install --standalone" do
     end
 
     it "allows `without` to limit the groups used in a standalone" do
-      config "without test"
+      bundle_config "without test"
       bundle :install, dir: cwd
-      config "path #{bundled_app("bundle")}"
+      bundle_config "path #{bundled_app("bundle")}"
       bundle :install, standalone: true, dir: cwd
 
       load_error_ruby <<-RUBY, "spec"
@@ -450,7 +450,7 @@ RSpec.describe "bundle install --standalone" do
           source "#{source_uri}"
           gem "rails"
         G
-        config "path #{bundled_app("bundle")}"
+        bundle_config "path #{bundled_app("bundle")}"
         bundle :install, standalone: true, artifice: "endpoint", dir: cwd
       end
 
@@ -484,7 +484,7 @@ RSpec.describe "bundle install --standalone run in a subdirectory" do
 
   context "when path set to a relative path" do
     before do
-      config "path bundle"
+      bundle_config "path bundle"
     end
 
     it "generates the script in the proper place" do

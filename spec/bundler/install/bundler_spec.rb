@@ -135,7 +135,7 @@ RSpec.describe "bundle install" do
     end
 
     it "causes a conflict if child dependencies conflict" do
-      config "force_ruby_platform true"
+      bundle_config "force_ruby_platform true"
 
       update_repo2 do
         build_gem "rails_pinned_to_old_activesupport" do |s|
@@ -163,7 +163,7 @@ RSpec.describe "bundle install" do
     end
 
     it "causes a conflict if a child dependency conflicts with the Gemfile" do
-      config "force_ruby_platform true"
+      bundle_config "force_ruby_platform true"
 
       update_repo2 do
         build_gem "rails_pinned_to_old_activesupport" do |s|
@@ -216,7 +216,7 @@ RSpec.describe "bundle install" do
         build_gem "rails", "7.0.4"
       end
 
-      config "path.system true"
+      bundle_config "path.system true"
 
       install_gemfile <<-G
         source "https://gem.repo4"
@@ -238,7 +238,7 @@ RSpec.describe "bundle install" do
     end
 
     it "can install dependencies with newer bundler version with system gems" do
-      config "path.system true"
+      bundle_config "path.system true"
 
       system_gems "bundler-99999999.99.1"
 
@@ -252,7 +252,7 @@ RSpec.describe "bundle install" do
     end
 
     it "can install dependencies with newer bundler version with a local path" do
-      config "path .bundle"
+      bundle_config "path .bundle"
 
       system_gems "bundler-99999999.99.1"
 

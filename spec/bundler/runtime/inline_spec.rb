@@ -499,7 +499,7 @@ RSpec.describe "bundler/inline#gemfile" do
   end
 
   it "skips platform warnings" do
-    config "force_ruby_platform true"
+    bundle_config "force_ruby_platform true"
 
     script <<-RUBY
       gemfile(true) do
@@ -512,7 +512,7 @@ RSpec.describe "bundler/inline#gemfile" do
   end
 
   it "still installs if the application has `bundle package` no_install config set" do
-    config "no_install true"
+    bundle_config "no_install true"
 
     script <<-RUBY
       gemfile do
