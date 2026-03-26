@@ -975,7 +975,7 @@ RSpec.describe "bundle install with gem sources" do
     it "should display a proper message to explain the problem" do
       FileUtils.chmod(0o500, bundle_path)
 
-      bundle "config set --local path vendor"
+      config "path vendor"
       bundle :install, raise_on_error: false
       expect(err).to include(bundle_path.to_s)
       expect(err).to include("grant executable permissions")
@@ -995,7 +995,7 @@ RSpec.describe "bundle install with gem sources" do
 
     it "should display a proper message to explain the problem" do
       FileUtils.chmod("-x", gems_path)
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       begin
         bundle :install, raise_on_error: false
@@ -1025,7 +1025,7 @@ RSpec.describe "bundle install with gem sources" do
 
     it "should display a proper message to explain the problem" do
       FileUtils.chmod("-x", full_gem_path)
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       begin
         bundle :install, raise_on_error: false
@@ -1055,7 +1055,7 @@ RSpec.describe "bundle install with gem sources" do
 
     it "should display a proper message to explain the problem" do
       FileUtils.chmod("-x", bin_dir)
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       begin
         bundle :install, raise_on_error: false
@@ -1085,7 +1085,7 @@ RSpec.describe "bundle install with gem sources" do
 
     it "should display a proper message to explain the problem" do
       FileUtils.chmod("-w", bin_dir)
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       begin
         bundle :install, raise_on_error: false
@@ -1115,7 +1115,7 @@ RSpec.describe "bundle install with gem sources" do
 
     it "should display a proper message to explain the problem" do
       FileUtils.chmod("-x", extensions_path)
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       begin
         bundle :install, raise_on_error: false
@@ -1150,7 +1150,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "should display a proper message to explain the problem" do
-      bundle "config set --local path vendor"
+      config "path vendor"
       bundle :install
       expect(out).to include("Bundle complete!")
       expect(err).to be_empty
@@ -1186,7 +1186,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "should still work" do
-      bundle "config set --local path vendor"
+      config "path vendor"
       bundle :install
       expect(out).to include("Bundle complete!")
       expect(err).to be_empty
@@ -1221,7 +1221,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "should display a proper message to explain the problem" do
-      bundle "config set --local path vendor"
+      config "path vendor"
       bundle :install
       expect(out).to include("Bundle complete!")
       expect(err).to be_empty
@@ -1252,7 +1252,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "does not try to remove the directory and thus don't abort with an error about unsafe directory removal" do
-      bundle "config set --local path vendor"
+      config "path vendor"
 
       FileUtils.mkdir_p(gems_path)
       FileUtils.chmod(0o777, gems_path)
@@ -1276,7 +1276,7 @@ RSpec.describe "bundle install with gem sources" do
     it "should display a proper message to explain the problem" do
       FileUtils.chmod(0o500, cache_path)
 
-      bundle "config set --local path vendor"
+      config "path vendor"
       bundle :install, raise_on_error: false
       expect(err).to include(cache_path.to_s)
       expect(err).to include("grant write permissions")
@@ -1414,7 +1414,7 @@ RSpec.describe "bundle install with gem sources" do
         source "https://gem.repo1"
         gem "myrack"
       G
-      bundle "config set --local path bundle"
+      config "path bundle"
       bundle "install", standalone: true
     end
 
@@ -1504,7 +1504,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "fails loudly if frozen mode set" do
-      bundle "config set --local deployment true"
+      config "deployment true"
       bundle "install", raise_on_error: false
 
       expect(err).to eq(
@@ -1580,7 +1580,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "automatically fixes the lockfile" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
 
       simulate_platform "x86_64-linux" do
         bundle "install", artifice: "compact_index"
@@ -1947,7 +1947,7 @@ RSpec.describe "bundle install with gem sources" do
   end
 
   it "only installs executable files in bin" do
-    bundle "config set --local path vendor/bundle"
+    config "path vendor/bundle"
 
     install_gemfile <<~G
       source "https://gem.repo1"

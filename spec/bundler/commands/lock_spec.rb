@@ -1112,7 +1112,7 @@ RSpec.describe "bundle lock" do
         #{Bundler::VERSION}
     G
 
-    bundle "config set --local force_ruby_platform true"
+    config "force_ruby_platform true"
     bundle :lock
 
     checksums.checksum gem_repo4, "ffi", "1.9.14"

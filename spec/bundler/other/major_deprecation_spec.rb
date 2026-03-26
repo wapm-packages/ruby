@@ -435,7 +435,7 @@ RSpec.describe "major deprecations" do
 
   context "bundle install with flags" do
     before do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
 
       install_gemfile <<-G
         source "https://gem.repo1"
@@ -520,7 +520,7 @@ RSpec.describe "major deprecations" do
         "Your lockfile contains a single rubygems source section with multiple remotes, which is insecure. " \
         "Make sure you run `bundle install` in non frozen mode and commit the result to make your lockfile secure."
       )
-      bundle "config set --local frozen true"
+      config "frozen true"
       bundle "install", raise_on_error: false
 
       expect(err).to include(

@@ -289,7 +289,7 @@ RSpec.describe "global gem caching" do
       gem_binary_cache.join("very_simple_binary_c.rb").open("w") {|f| f << "puts File.basename(__FILE__)" }
       git_binary_cache.join("very_simple_git_binary_c.rb").open("w") {|f| f << "puts File.basename(__FILE__)" }
 
-      bundle "config set --local path different_path"
+      config "path different_path"
       bundle :install
 
       expect(Dir[home(".bundle", "cache", "extensions", "**", "*binary_c*")]).to all(end_with(".rb"))

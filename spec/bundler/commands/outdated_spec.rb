@@ -792,7 +792,7 @@ RSpec.describe "bundle outdated" do
         gem "myrack"
         gem "foo"
       G
-      bundle "config set --local deployment true"
+      config "deployment true"
     end
 
     it "outputs a helpful message about being in deployment mode" do

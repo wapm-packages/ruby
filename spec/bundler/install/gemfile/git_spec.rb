@@ -183,7 +183,7 @@ RSpec.describe "bundle install with git sources" do
     end
 
     it "still works after moving the application directory" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       install_base_gemfile
 
       FileUtils.mv bundled_app, tmp("bundled_app.bck")
@@ -192,7 +192,7 @@ RSpec.describe "bundle install with git sources" do
     end
 
     it "can still install after moving the application directory" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       install_base_gemfile
 
       FileUtils.mv bundled_app, tmp("bundled_app.bck")
@@ -1291,7 +1291,7 @@ RSpec.describe "bundle install with git sources" do
 
       pristine_system_gems
 
-      bundle "config set --local deployment true"
+      config "deployment true"
       bundle :install
     end
   end

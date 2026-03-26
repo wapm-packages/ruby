@@ -390,7 +390,7 @@ RSpec.describe "bundle install --standalone" do
 
     it "allows `without` configuration to limit the groups used in a standalone" do
       bundle "config set --local path #{bundled_app("bundle")}"
-      bundle "config set --local without test"
+      config "without test"
       bundle :install, standalone: true, dir: cwd
 
       load_error_ruby <<-RUBY, "spec"
@@ -407,7 +407,7 @@ RSpec.describe "bundle install --standalone" do
     end
 
     it "allows `path` configuration to change the location of the standalone bundle" do
-      bundle "config set --local path path/to/bundle"
+      config "path path/to/bundle"
       bundle "install", standalone: true, dir: cwd
 
       ruby <<-RUBY
@@ -422,7 +422,7 @@ RSpec.describe "bundle install --standalone" do
     end
 
     it "allows `without` to limit the groups used in a standalone" do
-      bundle "config set --local without test"
+      config "without test"
       bundle :install, dir: cwd
       bundle "config set --local path #{bundled_app("bundle")}"
       bundle :install, standalone: true, dir: cwd
@@ -484,7 +484,7 @@ RSpec.describe "bundle install --standalone run in a subdirectory" do
 
   context "when path set to a relative path" do
     before do
-      bundle "config set --local path bundle"
+      config "path bundle"
     end
 
     it "generates the script in the proper place" do

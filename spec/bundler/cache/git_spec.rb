@@ -56,7 +56,7 @@ RSpec.describe "bundle cache with git" do
       gem "foo", :git => '#{lib_path("foo-1.0")}'
     G
 
-    bundle "config set --local path vendor/bundle"
+    config "path vendor/bundle"
     bundle "install"
     bundle :cache
 

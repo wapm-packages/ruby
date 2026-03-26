@@ -14,13 +14,13 @@ RSpec.describe "bundle install" do
     end
 
     it "does not use available system gems with `vendor/bundle" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle :install
       expect(the_bundle).to include_gems "myrack 1.0.0"
     end
 
     it "uses system gems with `path.system` configured with more priority than `path`" do
-      bundle "config set --local path.system true"
+      config "path.system true"
       bundle "config set --global path vendor/bundle"
       bundle :install
       run "require 'myrack'", raise_on_error: false
@@ -39,7 +39,7 @@ RSpec.describe "bundle install" do
     end
 
     it "prints a message to let the user know where gems where installed" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle :install
       expect(out).to include("gems are installed into `./vendor/bundle`")
     end
@@ -97,7 +97,7 @@ RSpec.describe "bundle install" do
       context "when set via #{type}" do
         it "installs gems to a path if one is specified" do
           set_bundle_path(type, bundled_app("vendor2").to_s)
-          bundle "config set --local path vendor/bundle"
+          config "path vendor/bundle"
           bundle :install
 
           expect(vendored_gems("gems/myrack-1.0.0")).to be_directory
@@ -147,7 +147,7 @@ RSpec.describe "bundle install" do
     end
 
     it "sets BUNDLE_PATH as the first argument to bundle install" do
-      bundle "config set --local path ./vendor/bundle"
+      config "path ./vendor/bundle"
       bundle :install
 
       expect(vendored_gems("gems/myrack-1.0.0")).to be_directory
@@ -157,7 +157,7 @@ RSpec.describe "bundle install" do
     it "disables system gems when passing a path to install" do
       # This is so that vendored gems can be distributed to others
       build_gem "myrack", "1.1.0", to_system: true
-      bundle "config set --local path ./vendor/bundle"
+      config "path ./vendor/bundle"
       bundle :install
 
       expect(vendored_gems("gems/myrack-1.0.0")).to be_directory
@@ -174,7 +174,7 @@ RSpec.describe "bundle install" do
         gem "very_simple_binary"
       G
 
-      bundle "config set --local path ./vendor/bundle"
+      config "path ./vendor/bundle"
       bundle :install
 
       expect(vendored_gems("gems/very_simple_binary-1.0")).to be_directory
@@ -186,7 +186,7 @@ RSpec.describe "bundle install" do
       run "require 'very_simple_binary_c'", raise_on_error: false
       expect(err).to include("Bundler::GemNotFound")
 
-      bundle "config set --local path ./vendor/bundle"
+      config "path ./vendor/bundle"
       bundle :install
 
       expect(vendored_gems("gems/very_simple_binary-1.0")).to be_directory
@@ -206,7 +206,7 @@ RSpec.describe "bundle install" do
         gem "myrack"
       G
 
-      bundle "config set --local path bundle"
+      config "path bundle"
       bundle :install, raise_on_error: false
       expect(err).to include("file already exists")
     end

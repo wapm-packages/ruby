@@ -289,7 +289,7 @@ RSpec.describe "bundle exec" do
   end
 
   it "handles gems installed with --without" do
-    bundle "config set --local without middleware"
+    config "without middleware"
     install_gemfile <<-G
       source "https://gem.repo1"
       gem "myrack" # myrack 0.9.1 and 1.0 exist
@@ -618,7 +618,7 @@ RSpec.describe "bundle exec" do
     system_gems "optparse-999.999.998", gem_repo: gem_repo4
 
     config "auto_install 1"
-    bundle "config set --local path vendor/bundle"
+    config "path vendor/bundle"
 
     gemfile <<~G
       source "https://gem.repo4"
@@ -1252,7 +1252,7 @@ RSpec.describe "bundle exec" do
     context "with a git gem that includes extensions", :ruby_repo do
       before do
         build_git "simple_git_binary", &:add_c_extension
-        bundle "config set --local path .bundle"
+        config "path .bundle"
         install_gemfile <<-G
           source "https://gem.repo1"
           gem "simple_git_binary", :git => '#{lib_path("simple_git_binary-1.0")}'

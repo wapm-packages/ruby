@@ -227,7 +227,7 @@ RSpec.describe "bundle cache" do
         end
       end
 
-      bundle "config set --local without wo"
+      config "without wo"
       install_gemfile <<-G, artifice: "compact_index_extra_api"
         source "https://main.repo"
         gem "myrack"
@@ -243,14 +243,14 @@ RSpec.describe "bundle cache" do
       expect(the_bundle).to include_gem "myrack 1.0"
       expect(the_bundle).not_to include_gems "weakling", "uninstallable"
 
-      bundle "config set --local without wo"
+      config "without wo"
       bundle :install, artifice: "compact_index_extra_api"
       expect(the_bundle).to include_gem "myrack 1.0"
       expect(the_bundle).not_to include_gems "weakling"
     end
 
     it "does not fail to cache gems in excluded groups when there's a lockfile but gems not previously installed" do
-      bundle "config set --local without wo"
+      config "without wo"
       gemfile <<-G
         source "https://gem.repo1"
         gem "myrack"
@@ -269,7 +269,7 @@ RSpec.describe "bundle cache" do
     let(:app_cache) { bundled_app("vendor/cache") }
 
     before do
-      bundle "config set --local frozen true"
+      config "frozen true"
     end
 
     it "tries to install but fails when the lockfile is out of sync" do
@@ -389,7 +389,7 @@ RSpec.describe "bundle cache" do
 
     it "installs them properly from cache to a different path" do
       bundle "cache"
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle "install --local"
     end
   end
@@ -423,8 +423,8 @@ RSpec.describe "bundle install with gem sources" do
       pristine_system_gems
       FileUtils.rm_r gem_repo2
 
-      bundle "config set --local deployment true"
-      bundle "config set --local path vendor/bundle"
+      config "deployment true"
+      config "path vendor/bundle"
       bundle :install
       expect(the_bundle).to include_gems "myrack 1.0.0"
     end
@@ -440,7 +440,7 @@ RSpec.describe "bundle install with gem sources" do
       pristine_system_gems
       FileUtils.rm_r gem_repo2
 
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle :install
       expect(the_bundle).to include_gems "myrack 1.0.0"
     end
@@ -456,8 +456,8 @@ RSpec.describe "bundle install with gem sources" do
       pristine_system_gems
       FileUtils.rm_r gem_repo2
 
-      bundle "config set --local cache_all_platforms true"
-      bundle "config set --local path vendor/bundle"
+      config "cache_all_platforms true"
+      config "path vendor/bundle"
       bundle "install --local"
       expect(out).not_to include("Fetching gem metadata")
       expect(the_bundle).to include_gems "myrack 1.0.0"
@@ -549,7 +549,7 @@ RSpec.describe "bundle install with gem sources" do
 
       pristine_system_gems
 
-      bundle "config set --local force_ruby_platform true"
+      config "force_ruby_platform true"
 
       install_gemfile <<-G
         source "https://gem.repo1"

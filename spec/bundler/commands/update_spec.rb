@@ -1837,7 +1837,7 @@ RSpec.describe "bundle update conservative" do
 
     context "with patch set as default update level in config" do
       it "should do a patch level update" do
-        bundle "config set --local prefer_patch true"
+        config "prefer_patch true"
         bundle "update foo"
 
         expect(the_bundle).to include_gems "foo 1.4.5", "bar 2.1.1", "qux 1.0.0"

@@ -286,7 +286,7 @@ RSpec.describe "Bundler.setup" do
         G
 
         bundle "install"
-        bundle "config set --local deployment true"
+        config "deployment true"
 
         ENV["BUNDLE_GEMFILE"] = "Gemfile"
         ruby <<-R
@@ -490,7 +490,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "does not randomly change the path when specifying --path and the bundle directory becomes read only" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle :install
 
       with_read_only("#{bundled_app}/**/*") do
@@ -499,7 +499,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "finds git gem when default bundle path becomes read only" do
-      bundle "config set --local path .bundle"
+      config "path .bundle"
       bundle "install"
 
       with_read_only("#{bundled_app(".bundle")}/**/*") do
@@ -594,7 +594,7 @@ RSpec.describe "Bundler.setup" do
 
   describe "when excluding groups" do
     it "doesn't change the resolve if --without is used" do
-      bundle "config set --local without rails"
+      config "without rails"
       install_gemfile <<-G
         source "https://gem.repo1"
         gem "activesupport"
@@ -610,7 +610,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "remembers --without and does not bail on bare Bundler.setup" do
-      bundle "config set --local without rails"
+      config "without rails"
       install_gemfile <<-G
         source "https://gem.repo1"
         gem "activesupport"
@@ -626,7 +626,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "remembers --without and does not bail on bare Bundler.setup, even in the case of path gems no longer available" do
-      bundle "config set --local without development"
+      config "without development"
 
       path = bundled_app(File.join("vendor", "foo"))
       build_lib "foo", path: path
@@ -692,7 +692,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "remembers --without and does not include groups passed to Bundler.setup" do
-      bundle "config set --local without rails"
+      config "without rails"
       install_gemfile <<-G
         source "https://gem.repo1"
         gem "activesupport"
@@ -1228,7 +1228,7 @@ end
     end
 
     before do
-      bundle "config set --local path.system true"
+      config "path.system true"
 
       install_gemfile <<-G
         source "https://gem.repo1"
@@ -1512,7 +1512,7 @@ end
           gem "net-http-pipeline", "1.0.1"
         G
 
-        bundle "config set --local path vendor/bundle"
+        config "path vendor/bundle"
 
         bundle :install
 

@@ -142,7 +142,7 @@ RSpec.describe "bundle check" do
       gem "myrack", :group => :foo
     G
 
-    bundle "config set --local without foo"
+    config "without foo"
     bundle :install
 
     gemfile <<-G
@@ -161,7 +161,7 @@ RSpec.describe "bundle check" do
       gem "myrack"
     G
 
-    bundle "config set --local path vendor/bundle"
+    config "path vendor/bundle"
     bundle :cache
 
     uninstall_gem("myrack", env: { "GEM_HOME" => vendored_gems.to_s })
@@ -251,7 +251,7 @@ RSpec.describe "bundle check" do
       gem "foo"
     G
 
-    bundle "config set --local deployment true"
+    config "deployment true"
     bundle "install"
     FileUtils.rm(bundled_app_lock)
 
@@ -564,7 +564,7 @@ RSpec.describe "bundle check" do
     end
 
     before do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
 
       install_gemfile <<-G
         source "https://gem.repo1"

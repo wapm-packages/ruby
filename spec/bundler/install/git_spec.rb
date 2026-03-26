@@ -85,8 +85,8 @@ RSpec.describe "bundle install" do
           foo!
       L
 
-      bundle "config set --local path vendor/bundle"
-      bundle "config set --local without development"
+      config "path vendor/bundle"
+      config "without development"
       bundle :install
 
       expect(out).to include("Bundle complete!")
@@ -310,7 +310,7 @@ RSpec.describe "bundle install" do
       bundle :install
 
       # Set without and reinstall
-      bundle "config set --local without development"
+      config "without development"
       bundle :install
 
       # Verify only production gem is available

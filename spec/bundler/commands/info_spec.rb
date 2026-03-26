@@ -57,7 +57,7 @@ RSpec.describe "bundle info" do
     end
 
     it "doesn't claim that bundler is missing, even if using a custom path without bundler there" do
-      bundle "config set --local path vendor/bundle"
+      config "path vendor/bundle"
       bundle "install"
       bundle "info bundler"
       expect(out).to include("\tPath: #{root}")
