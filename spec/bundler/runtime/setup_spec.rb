@@ -135,7 +135,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "orders the load path correctly when there are dependencies" do
-      bundle "config set path.system true"
+      config "path.system true"
 
       install_gemfile <<-G
         source "https://gem.repo1"
@@ -163,7 +163,7 @@ RSpec.describe "Bundler.setup" do
     end
 
     it "falls back to order the load path alphabetically for backwards compatibility" do
-      bundle "config set path.system true"
+      config "path.system true"
 
       install_gemfile <<-G
         source "https://gem.repo1"
@@ -1114,7 +1114,7 @@ end
 
   describe "with system gems in the bundle" do
     before :each do
-      bundle "config set path.system true"
+      config "path.system true"
       system_gems "myrack-1.0.0"
 
       install_gemfile <<-G
@@ -1663,7 +1663,7 @@ end
       gem "myrack", :group => :test
     G
 
-    bundle "config set auto_install 1"
+    config "auto_install 1"
 
     ruby <<-RUBY, artifice: "compact_index"
       require 'bundler/setup'

@@ -188,8 +188,8 @@ RSpec.describe "bundle install" do
       build_git "foo", "1.0", path: lib_path("foo")
       rev = revision_for(lib_path("foo"))
 
-      bundle "config set path vendor/bundle"
-      bundle "config set clean true"
+      config "path vendor/bundle"
+      config "clean true"
       install_gemfile <<-G, verbose: true
         source "https://gem.repo1"
         gem "foo", :git => "#{lib_path("foo")}"

@@ -956,7 +956,7 @@ RSpec.describe "compact index api" do
     end
 
     it "does not raise when disable_checksum_validation is set" do
-      bundle "config set disable_checksum_validation true"
+      config "disable_checksum_validation true"
       install_gemfile <<-G, artifice: "compact_index_wrong_gem_checksum"
         source "#{source_uri}"
         gem "myrack"

@@ -917,7 +917,7 @@ RSpec.describe "bundle install with gem sources" do
 
   describe "when requesting a quiet install via --quiet" do
     it "should be quiet if there are no warnings" do
-      bundle "config set force_ruby_platform true"
+      config "force_ruby_platform true"
 
       gemfile <<-G
         source "https://gem.repo1"
@@ -930,7 +930,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "should still display warnings and errors" do
-      bundle "config set force_ruby_platform true"
+      config "force_ruby_platform true"
 
       create_file("install_with_warning.rb", <<~RUBY)
         require "#{lib_dir}/bundler"
@@ -1291,7 +1291,7 @@ RSpec.describe "bundle install with gem sources" do
         source "https://gem.repo1"
         gem 'myrack'
       G
-      bundle "config set path vendor/bundle"
+      config "path vendor/bundle"
       bundle :install
       expect(out).to include("Bundle complete!")
       expect(err).to be_empty
@@ -1654,7 +1654,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "raises a clear error message when frozen" do
-      bundle "config set frozen true"
+      config "frozen true"
       bundle "install", raise_on_error: false
 
       expect(exitstatus).to eq(41)
@@ -1666,7 +1666,7 @@ RSpec.describe "bundle install with gem sources" do
       missing_dep = "myrack (0.9.1)"
       expect(lockfile).not_to include(missing_dep)
 
-      bundle "config set frozen false"
+      config "frozen false"
       bundle :install
 
       expect(lockfile).to include(missing_dep)
@@ -1694,7 +1694,7 @@ RSpec.describe "bundle install with gem sources" do
 
   context "with only option" do
     before do
-      bundle "config set only a:b"
+      config "only a:b"
     end
 
     it "installs only gems of the specified groups" do

@@ -744,7 +744,7 @@ RSpec.describe "bundle gem" do
 
   context "init_gems_rb setting to true" do
     before do
-      bundle "config set init_gems_rb true"
+      config "init_gems_rb true"
       bundle "gem #{gem_name}"
     end
 
@@ -762,7 +762,7 @@ RSpec.describe "bundle gem" do
 
   context "init_gems_rb setting to false" do
     before do
-      bundle "config set init_gems_rb false"
+      config "init_gems_rb false"
       bundle "gem #{gem_name}"
     end
 
@@ -780,7 +780,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test setting set to rspec" do
     before do
-      bundle "config set gem.test rspec"
+      config "gem.test rspec"
       bundle "gem #{gem_name}"
     end
 
@@ -798,7 +798,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test setting set to rspec and --test is set to minitest" do
     before do
-      bundle "config set gem.test rspec"
+      config "gem.test rspec"
       bundle "gem #{gem_name} --test=minitest"
     end
 
@@ -853,7 +853,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test setting set to minitest" do
     before do
-      bundle "config set gem.test minitest"
+      config "gem.test minitest"
       bundle "gem #{gem_name}"
     end
 
@@ -929,7 +929,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test set to rspec and --test with no arguments" do
     before do
-      bundle "config set gem.test rspec"
+      config "gem.test rspec"
       bundle "gem #{gem_name} --test"
     end
 
@@ -951,7 +951,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test setting set to false and --test with no arguments", :readline do
     before do
-      bundle "config set gem.test false"
+      config "gem.test false"
       bundle "gem #{gem_name} --test" do |input, _, _|
         input.puts
       end
@@ -991,7 +991,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.test setting set to a test framework and --no-test" do
     before do
-      bundle "config set gem.test rspec"
+      config "gem.test rspec"
       bundle "gem #{gem_name} --no-test"
     end
 
@@ -1079,7 +1079,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci setting set to github" do
     it "generates a GitHub Actions config file" do
-      bundle "config set gem.ci github"
+      config "gem.ci github"
       bundle "gem #{gem_name}"
 
       expect(bundled_app("#{gem_name}/.github/workflows/main.yml")).to exist
@@ -1088,7 +1088,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci setting set to gitlab" do
     it "generates a GitLab CI config file" do
-      bundle "config set gem.ci gitlab"
+      config "gem.ci gitlab"
       bundle "gem #{gem_name}"
 
       expect(bundled_app("#{gem_name}/.gitlab-ci.yml")).to exist
@@ -1097,7 +1097,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci setting set to circle" do
     it "generates a CircleCI config file" do
-      bundle "config set gem.ci circle"
+      config "gem.ci circle"
       bundle "gem #{gem_name}"
 
       expect(bundled_app("#{gem_name}/.circleci/config.yml")).to exist
@@ -1106,7 +1106,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci set to github and --ci with no arguments" do
     before do
-      bundle "config set gem.ci github"
+      config "gem.ci github"
       bundle "gem #{gem_name} --ci"
     end
 
@@ -1121,7 +1121,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci setting set to false and --ci with no arguments", :readline do
     before do
-      bundle "config set gem.ci false"
+      config "gem.ci false"
       bundle "gem #{gem_name} --ci" do |input, _, _|
         input.puts "github"
       end
@@ -1157,7 +1157,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.ci setting set to a CI service and --no-ci" do
     before do
-      bundle "config set gem.ci github"
+      config "gem.ci github"
       bundle "gem #{gem_name} --no-ci"
     end
 
@@ -1245,7 +1245,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.linter setting set to rubocop" do
     before do
-      bundle "config set gem.linter rubocop"
+      config "gem.linter rubocop"
       bundle "gem #{gem_name}"
     end
 
@@ -1260,7 +1260,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.linter setting set to standard" do
     before do
-      bundle "config set gem.linter standard"
+      config "gem.linter standard"
       bundle "gem #{gem_name}"
     end
 
@@ -1275,7 +1275,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.linter set to rubocop and --linter with no arguments" do
     before do
-      bundle "config set gem.linter rubocop"
+      config "gem.linter rubocop"
       bundle "gem #{gem_name} --linter"
     end
 
@@ -1294,7 +1294,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.linter setting set to false and --linter with no arguments", :readline do
     before do
-      bundle "config set gem.linter false"
+      config "gem.linter false"
       bundle "gem #{gem_name} --linter" do |input, _, _|
         input.puts "rubocop"
       end
@@ -1330,7 +1330,7 @@ RSpec.describe "bundle gem" do
 
   context "gem.linter setting set to a linter and --no-linter" do
     before do
-      bundle "config set gem.linter rubocop"
+      config "gem.linter rubocop"
       bundle "gem #{gem_name} --no-linter"
     end
 

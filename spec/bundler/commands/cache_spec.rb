@@ -37,7 +37,7 @@ RSpec.describe "bundle cache" do
           gem 'bundler'
         D
 
-        bundle "config set cache_all true"
+        config "cache_all true"
         bundle :cache
 
         expect(bundled_app("vendor/cache/myrack-1.0.0.gem")).to exist
@@ -68,7 +68,7 @@ RSpec.describe "bundle cache" do
             gemspec
           D
 
-          bundle "config set cache_all true"
+          config "cache_all true"
           bundle :cache
 
           expect(bundled_app("vendor/cache/myrack-1.0.0.gem")).to exist
@@ -100,7 +100,7 @@ RSpec.describe "bundle cache" do
             gemspec
           D
 
-          bundle "config set cache_all true"
+          config "cache_all true"
           bundle :cache
 
           expect(bundled_app("vendor/cache/myrack-1.0.0.gem")).to exist
@@ -145,7 +145,7 @@ RSpec.describe "bundle cache" do
           gemspec :name => 'mygem_test'
         D
 
-        bundle "config set cache_all true"
+        config "cache_all true"
         bundle :cache
 
         expect(bundled_app("vendor/cache/myrack-1.0.0.gem")).to exist
@@ -506,8 +506,8 @@ RSpec.describe "bundle install with gem sources" do
       L
 
       simulate_platform "x86_64-linux" do
-        bundle "config set cache_all_platforms true"
-        bundle "config set path vendor/bundle"
+        config "cache_all_platforms true"
+        config "path vendor/bundle"
         bundle :cache, artifice: "compact_index", env: { "BUNDLER_SPEC_GEM_REPO" => gem_repo4.to_s }
 
         # simulate removal of all remote gems
@@ -572,7 +572,7 @@ RSpec.describe "bundle install with gem sources" do
       FileUtils.cp gem_repo4("gems/bcrypt_pbkdf-1.1.1-arm64-darwin.gem"), app_cache
       FileUtils.cp gem_repo4("gems/bcrypt_pbkdf-1.1.1.gem"), app_cache
 
-      bundle "config set cache_all_platforms true"
+      config "cache_all_platforms true"
 
       lockfile <<~L
         GEM

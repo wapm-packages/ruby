@@ -192,6 +192,11 @@ module Spec
     end
 
     def config(config = nil, path = bundled_app(".bundle/config"))
+      if config.is_a?(String)
+        key, value = config.split(" ", 2)
+        config = { Bundler::Settings.key_for(key) => value }
+      end
+
       current = File.exist?(path) ? Psych.load_file(path) : {}
       return current unless config
 

@@ -9,13 +9,13 @@ RSpec.describe "install in deployment or frozen mode" do
   end
 
   it "fails without a lockfile and says that deployment requires a lock" do
-    bundle "config set deployment true"
+    config "deployment true"
     bundle "install", raise_on_error: false
     expect(err).to include("The deployment setting requires a lockfile")
   end
 
   it "fails without a lockfile and says that frozen requires a lock" do
-    bundle "config set frozen true"
+    config "frozen true"
     bundle "install", raise_on_error: false
     expect(err).to include("The frozen setting requires a lockfile")
   end
@@ -142,7 +142,7 @@ RSpec.describe "install in deployment or frozen mode" do
     end
 
     it "installs gems by default to vendor/bundle" do
-      bundle "config set deployment true"
+      config "deployment true"
       expect do
         bundle "install"
       end.not_to change { bundled_app_lock.mtime }
@@ -150,20 +150,20 @@ RSpec.describe "install in deployment or frozen mode" do
     end
 
     it "installs gems to custom path if specified" do
-      bundle "config set path vendor/bundle2"
-      bundle "config set deployment true"
+      config "path vendor/bundle2"
+      config "deployment true"
       bundle "install"
       expect(out).to include("vendor/bundle2")
     end
 
     it "installs gems to custom path if specified, even when configured through ENV" do
-      bundle "config set deployment true"
+      config "deployment true"
       bundle "install", env: { "BUNDLE_PATH" => "vendor/bundle2" }
       expect(out).to include("vendor/bundle2")
     end
 
     it "works with the `frozen` setting" do
-      bundle "config set frozen true"
+      config "frozen true"
       expect do
         bundle "install"
       end.not_to change { bundled_app_lock.mtime }

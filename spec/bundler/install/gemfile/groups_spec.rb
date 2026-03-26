@@ -101,7 +101,7 @@ RSpec.describe "bundle install with groups" do
       end
 
       it "allows running application where groups where configured by a different user" do
-        bundle "config set without emo"
+        config "without emo"
         bundle :install
         bundle "exec ruby -e 'puts 42'", env: { "BUNDLE_USER_HOME" => tmp("new_home").to_s }
         expect(out).to include("42")

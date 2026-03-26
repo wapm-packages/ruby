@@ -100,7 +100,7 @@ RSpec.describe "bundle executable" do
     end
 
     it "runs bundle install when default_cli_command set to install" do
-      bundle "config set default_cli_command install"
+      config "default_cli_command install"
       bundle "", raise_on_error: false
       expect(out).to_not include("In a future version of Bundler")
       expect(err).to include("Could not locate Gemfile")
@@ -143,7 +143,7 @@ RSpec.describe "bundle executable" do
 
   context "with verbose configuration" do
     before do
-      bundle "config set verbose true"
+      config "verbose true"
     end
 
     it "prints the running command" do
@@ -278,7 +278,7 @@ RSpec.describe "bundler executable" do
     bundler "--version"
     expect(out).to eq(Bundler::VERSION.to_s)
 
-    bundle "config set simulate_version 5"
+    config "simulate_version 5"
     bundler "--version"
     expect(out).to eq("#{Bundler::VERSION} (simulating Bundler 5)")
   end

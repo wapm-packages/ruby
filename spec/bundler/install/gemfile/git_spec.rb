@@ -35,7 +35,7 @@ RSpec.describe "bundle install with git sources" do
       build_git "foo"
       revision = revision_for(lib_path("foo-1.0"))
 
-      bundle "config set lockfile_checksums true"
+      config "lockfile_checksums true"
       gemfile base_gemfile
 
       lockfile <<~L
@@ -62,7 +62,7 @@ RSpec.describe "bundle install with git sources" do
           #{Bundler::VERSION}
       L
 
-      bundle "config set frozen true"
+      config "frozen true"
 
       bundle "install"
       expect(the_bundle).to include_gems("foo 1.0")
@@ -83,7 +83,7 @@ RSpec.describe "bundle install with git sources" do
     it "caches the git repo globally and properly uses the cached repo on the next invocation" do
       install_base_gemfile
       pristine_system_gems
-      bundle "config set global_gem_cache true"
+      config "global_gem_cache true"
       bundle :install
       expect(Dir["#{home}/.bundle/cache/git/foo-1.0-*"]).to have_attributes size: 1
 
@@ -381,7 +381,7 @@ RSpec.describe "bundle install with git sources" do
     it "does not download random non-head refs" do
       git("update-ref -m \"Bundler Spec!\" refs/bundler/1 main~1", lib_path("foo-1.0"))
 
-      bundle "config set global_gem_cache true"
+      config "global_gem_cache true"
 
       install_gemfile <<-G
         source "https://gem.repo1"

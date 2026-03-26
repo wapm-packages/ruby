@@ -192,7 +192,7 @@ RSpec.describe "Self management" do
     it "does not try to install when using bundle config version global" do
       lockfile_bundled_with(previous_minor)
 
-      bundle "config set version system"
+      config "version system"
       bundle "install"
       expect(out).not_to match(/restarting using that version/)
 

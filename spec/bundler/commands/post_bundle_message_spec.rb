@@ -124,7 +124,7 @@ RSpec.describe "post bundle message" do
 
   describe "with misspelled or non-existent gem name" do
     before do
-      bundle "config set force_ruby_platform true"
+      config "force_ruby_platform true"
     end
 
     it "should report a helpful error message" do

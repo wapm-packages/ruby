@@ -88,7 +88,7 @@ RSpec.describe "bundle check" do
   it "prints a generic error if gem git source is not checked out" do
     build_git "foo", path: lib_path("foo")
 
-    bundle "config set path vendor/bundle"
+    config "path vendor/bundle"
 
     install_gemfile <<-G
       source "https://gem.repo1"
@@ -124,7 +124,7 @@ RSpec.describe "bundle check" do
   end
 
   it "uses the without setting" do
-    bundle "config set without foo"
+    config "without foo"
     install_gemfile <<-G
       source "https://gem.repo1"
       group :foo do
@@ -499,7 +499,7 @@ RSpec.describe "bundle check" do
         build_gem "bar"
       end
 
-      bundle "config set path.system true"
+      config "path.system true"
 
       # Add all gems to ensure all gems are installed so that a bundle check
       # would be successful

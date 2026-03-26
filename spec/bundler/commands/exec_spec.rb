@@ -582,7 +582,7 @@ RSpec.describe "bundle exec" do
       gem "foo"
     G
 
-    bundle "config set auto_install 1"
+    config "auto_install 1"
     bundle "exec myrackup", artifice: "compact_index"
     expect(out).to include("Installing foo 1.0")
   end
@@ -597,7 +597,7 @@ RSpec.describe "bundle exec" do
       gem "foo", :git => "#{lib_path("foo-1.0")}"
     G
 
-    bundle "config set auto_install 1"
+    config "auto_install 1"
     bundle "exec foo", artifice: "compact_index"
     expect(out).to include("Fetching myrack 0.9.1")
     expect(out).to include("Fetching #{lib_path("foo-1.0")}")
@@ -617,7 +617,7 @@ RSpec.describe "bundle exec" do
 
     system_gems "optparse-999.999.998", gem_repo: gem_repo4
 
-    bundle "config set auto_install 1"
+    config "auto_install 1"
     bundle "config set --local path vendor/bundle"
 
     gemfile <<~G
@@ -671,7 +671,7 @@ RSpec.describe "bundle exec" do
       end
       Bundler.rubygems.extend(Monkey)
       G
-      bundle "config set path.system true"
+      config "path.system true"
       bundle "install"
       bundle "exec ruby -e '`bundle -v`; puts $?.success?'", env: { "BUNDLER_VERSION" => Bundler::VERSION }
       expect(out).to match("true")
@@ -951,7 +951,7 @@ RSpec.describe "bundle exec" do
       end
 
       before do
-        bundle "config set disable_exec_load true"
+        config "disable_exec_load true"
       end
 
       it "runs" do
@@ -1088,7 +1088,7 @@ RSpec.describe "bundle exec" do
           source "https://gem.repo1"
           gem "myrack"
         G
-        bundle "config set path vendor/bundler"
+        config "path vendor/bundler"
         bundle :install
       end
 
@@ -1155,8 +1155,8 @@ RSpec.describe "bundle exec" do
           end
         end
 
-        bundle "config set path vendor/bundle"
-        bundle "config set gemfile gemfiles/myrack_6_1.gemfile"
+        config "path vendor/bundle"
+        config "gemfile gemfiles/myrack_6_1.gemfile"
 
         gemfile(bundled_app("gemfiles/myrack_6_1.gemfile"), <<~RUBY)
           source "https://gem.repo2"
