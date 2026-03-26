@@ -1674,7 +1674,7 @@ In Gemfile:
           gem 'foo'
         end
       G
-      bundle "config set --global path vendor/bundle"
+      global_config "path vendor/bundle"
       bundle :install
       pristine_system_gems
 

@@ -92,7 +92,7 @@ RSpec.describe "bundle install with groups" do
       end
 
       it "respects global `without` configuration, but does not save it locally" do
-        bundle "config set --global without emo"
+        global_config "without emo"
         bundle :install
         expect(the_bundle).to include_gems "myrack 1.0.0", groups: [:default]
         bundle "config list"

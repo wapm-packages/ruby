@@ -47,8 +47,13 @@ RSpec.describe "bundle gem" do
     git("config --global user.email user@example.com")
     git("config --global github.user bundleuser")
 
-    global_config "BUNDLE_GEM__MIT" => "false", "BUNDLE_GEM__TEST" => "false", "BUNDLE_GEM__COC" => "false", "BUNDLE_GEM__LINTER" => "false",
-                  "BUNDLE_GEM__CI" => "false", "BUNDLE_GEM__CHANGELOG" => "false", "BUNDLE_GEM__BUNDLE" => "false"
+    global_config "gem.mit false"
+    global_config "gem.test false"
+    global_config "gem.coc false"
+    global_config "gem.linter false"
+    global_config "gem.ci false"
+    global_config "gem.changelog false"
+    global_config "gem.bundle false"
   end
 
   describe "git repo initialization" do
@@ -524,7 +529,7 @@ RSpec.describe "bundle gem" do
   shared_examples_for "github_username configuration" do
     context "with github_username setting set to some value" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "different_username"
+        global_config "gem.github_username different_username"
         bundle "gem #{gem_name}"
       end
 
@@ -540,7 +545,7 @@ RSpec.describe "bundle gem" do
 
     context "with github_username setting set to false" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "false"
+        global_config "gem.github_username false"
         bundle "gem #{gem_name}"
       end
 
@@ -1433,7 +1438,7 @@ RSpec.describe "bundle gem" do
 
   context "with mit option in bundle config settings set to true" do
     before do
-      global_config "BUNDLE_GEM__MIT" => "true"
+      global_config "gem.mit true"
     end
     it_behaves_like "--mit flag"
     it_behaves_like "--no-mit flag"
@@ -1441,7 +1446,7 @@ RSpec.describe "bundle gem" do
 
   context "with mit option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__MIT" => "false"
+      global_config "gem.mit false"
     end
     it_behaves_like "--mit flag"
     it_behaves_like "--no-mit flag"
@@ -1449,7 +1454,7 @@ RSpec.describe "bundle gem" do
 
   context "with coc option in bundle config settings set to true" do
     before do
-      global_config "BUNDLE_GEM__COC" => "true"
+      global_config "gem.coc true"
     end
     it_behaves_like "--coc flag"
     it_behaves_like "--no-coc flag"
@@ -1457,7 +1462,7 @@ RSpec.describe "bundle gem" do
 
   context "with coc option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__COC" => "false"
+      global_config "gem.coc false"
     end
     it_behaves_like "--coc flag"
     it_behaves_like "--no-coc flag"
@@ -1465,7 +1470,7 @@ RSpec.describe "bundle gem" do
 
   context "with rubocop option in bundle config settings set to true" do
     before do
-      global_config "BUNDLE_GEM__RUBOCOP" => "true"
+      global_config "gem.rubocop true"
     end
     it_behaves_like "--linter=rubocop flag"
     it_behaves_like "--linter=standard flag"
@@ -1474,7 +1479,7 @@ RSpec.describe "bundle gem" do
 
   context "with rubocop option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__RUBOCOP" => "false"
+      global_config "gem.rubocop false"
     end
     it_behaves_like "--linter=rubocop flag"
     it_behaves_like "--linter=standard flag"
@@ -1483,7 +1488,7 @@ RSpec.describe "bundle gem" do
 
   context "with linter option in bundle config settings set to rubocop" do
     before do
-      global_config "BUNDLE_GEM__LINTER" => "rubocop"
+      global_config "gem.linter rubocop"
     end
     it_behaves_like "--linter=rubocop flag"
     it_behaves_like "--linter=standard flag"
@@ -1492,7 +1497,7 @@ RSpec.describe "bundle gem" do
 
   context "with linter option in bundle config settings set to standard" do
     before do
-      global_config "BUNDLE_GEM__LINTER" => "standard"
+      global_config "gem.linter standard"
     end
     it_behaves_like "--linter=rubocop flag"
     it_behaves_like "--linter=standard flag"
@@ -1501,7 +1506,7 @@ RSpec.describe "bundle gem" do
 
   context "with linter option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__LINTER" => "false"
+      global_config "gem.linter false"
     end
     it_behaves_like "--linter=rubocop flag"
     it_behaves_like "--linter=standard flag"
@@ -1510,7 +1515,7 @@ RSpec.describe "bundle gem" do
 
   context "with changelog option in bundle config settings set to true" do
     before do
-      global_config "BUNDLE_GEM__CHANGELOG" => "true"
+      global_config "gem.changelog true"
     end
     it_behaves_like "--changelog flag"
     it_behaves_like "--no-changelog flag"
@@ -1518,7 +1523,7 @@ RSpec.describe "bundle gem" do
 
   context "with changelog option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__CHANGELOG" => "false"
+      global_config "gem.changelog false"
     end
     it_behaves_like "--changelog flag"
     it_behaves_like "--no-changelog flag"
@@ -1526,7 +1531,7 @@ RSpec.describe "bundle gem" do
 
   context "with bundle option in bundle config settings set to true" do
     before do
-      global_config "BUNDLE_GEM__BUNDLE" => "true"
+      global_config "gem.bundle true"
     end
     it_behaves_like "--bundle flag"
     it_behaves_like "--no-bundle flag"
@@ -1539,7 +1544,7 @@ RSpec.describe "bundle gem" do
 
   context "with bundle option in bundle config settings set to false" do
     before do
-      global_config "BUNDLE_GEM__BUNDLE" => "false"
+      global_config "gem.bundle false"
     end
     it_behaves_like "--bundle flag"
     it_behaves_like "--no-bundle flag"
@@ -1556,7 +1561,7 @@ RSpec.describe "bundle gem" do
     end
     context "with github-username option in bundle config settings set to some value" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "different_username"
+        global_config "gem.github_username different_username"
       end
       it_behaves_like "--github-username option", "gh_user"
     end
@@ -1565,7 +1570,7 @@ RSpec.describe "bundle gem" do
 
     context "with github-username option in bundle config settings set to false" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "false"
+        global_config "gem.github_username false"
       end
       it_behaves_like "--github-username option", "gh_user"
     end
@@ -1597,7 +1602,7 @@ RSpec.describe "bundle gem" do
   context "with git config github.user set" do
     context "with github-username option in bundle config settings set to some value" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "different_username"
+        global_config "gem.github_username different_username"
       end
       it_behaves_like "--github-username option", "gh_user"
     end
@@ -1606,7 +1611,7 @@ RSpec.describe "bundle gem" do
 
     context "with github-username option in bundle config settings set to false" do
       before do
-        global_config "BUNDLE_GEM__GITHUB_USERNAME" => "false"
+        global_config "gem.github_username false"
       end
       it_behaves_like "--github-username option", "gh_user"
     end

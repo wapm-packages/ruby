@@ -268,7 +268,7 @@ RSpec.describe "bundle exec" do
       end
     end
 
-    bundle "config set --global path.system true"
+    global_config "path.system true"
 
     install_gemfile <<-G
       source "https://gem.repo1"

@@ -210,7 +210,7 @@ RSpec.describe "bundle executable" do
     let(:bundler_version) { "2.0" }
     let(:latest_version) { nil }
     before do
-      bundle "config set --global disable_version_check false"
+      global_config "disable_version_check false"
 
       pristine_system_gems "bundler-#{bundler_version}"
       if latest_version

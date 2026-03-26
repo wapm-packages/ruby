@@ -754,8 +754,11 @@ RSpec.describe "major deprecations" do
 
   describe "removing rubocop" do
     before do
-      global_config "BUNDLE_GEM__MIT" => "false", "BUNDLE_GEM__TEST" => "false", "BUNDLE_GEM__COC" => "false",
-                    "BUNDLE_GEM__CI" => "false", "BUNDLE_GEM__CHANGELOG" => "false"
+      global_config "gem.mit false"
+      global_config "gem.test false"
+      global_config "gem.coc false"
+      global_config "gem.ci false"
+      global_config "gem.changelog false"
     end
 
     context "bundle gem --rubocop" do

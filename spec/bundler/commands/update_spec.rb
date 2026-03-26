@@ -828,7 +828,7 @@ RSpec.describe "bundle update" do
     end
 
     it "should fail loudly when frozen is set globally" do
-      bundle "config set --global frozen 1"
+      global_config "frozen 1"
       bundle "update", all: true, raise_on_error: false
       expect(err).to eq <<~ERROR.strip
         Bundler is unlocking, but the lockfile can't be updated because frozen mode is set
@@ -838,7 +838,7 @@ RSpec.describe "bundle update" do
     end
 
     it "should fail loudly when deployment is set globally" do
-      bundle "config set --global deployment true"
+      global_config "deployment true"
       bundle "update", all: true, raise_on_error: false
       expect(err).to eq <<~ERROR.strip
         Bundler is unlocking, but the lockfile can't be updated because frozen mode is set

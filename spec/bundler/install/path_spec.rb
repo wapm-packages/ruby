@@ -21,7 +21,7 @@ RSpec.describe "bundle install" do
 
     it "uses system gems with `path.system` configured with more priority than `path`" do
       config "path.system true"
-      bundle "config set --global path vendor/bundle"
+      global_config "path vendor/bundle"
       bundle :install
       run "require 'myrack'", raise_on_error: false
       expect(out).to include("FAIL")
@@ -107,7 +107,7 @@ RSpec.describe "bundle install" do
 
         it "installs gems to ." do
           set_bundle_path(type, ".")
-          bundle "config set --global disable_shared_gems true"
+          global_config "disable_shared_gems true"
 
           bundle :install
 
