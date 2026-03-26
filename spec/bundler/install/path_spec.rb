@@ -45,7 +45,7 @@ RSpec.describe "bundle install" do
     end
 
     it "installs the bundle relatively to repository root, when Bundler run from the same directory" do
-      bundle "config path vendor/bundle", dir: bundled_app.parent
+      bundle "config set path vendor/bundle", dir: bundled_app.parent
       bundle "install --gemfile='#{bundled_app}/Gemfile'", dir: bundled_app.parent
       expect(out).to include("installed into `./bundled_app/vendor/bundle`")
       expect(bundled_app("vendor/bundle")).to be_directory
@@ -53,7 +53,7 @@ RSpec.describe "bundle install" do
     end
 
     it "installs the bundle relatively to repository root, when Bundler run from a different directory" do
-      bundle "config path vendor/bundle", dir: bundled_app
+      bundle "config set path vendor/bundle", dir: bundled_app
       bundle "install --gemfile='#{bundled_app}/Gemfile'", dir: bundled_app.parent
       expect(out).to include("installed into `./bundled_app/vendor/bundle`")
       expect(bundled_app("vendor/bundle")).to be_directory

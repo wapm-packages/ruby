@@ -235,7 +235,7 @@ RSpec.describe "bundle info" do
 
   context "with without configured" do
     it "does not find the gem, but gives a helpful error" do
-      bundle "config without test"
+      bundle "config set without test"
 
       install_gemfile <<-G
         source "https://gem.repo1"

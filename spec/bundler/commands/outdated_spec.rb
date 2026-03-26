@@ -764,7 +764,7 @@ RSpec.describe "bundle outdated" do
         gem "foo"
       G
       bundle :lock
-      bundle "config deployment true"
+      bundle "config set deployment true"
     end
 
     it "outputs a helpful message about being in deployment mode" do

@@ -1291,7 +1291,7 @@ RSpec.describe "bundle install with gem sources" do
         source "https://gem.repo1"
         gem 'myrack'
       G
-      bundle "config path vendor/bundle"
+      bundle "config set path vendor/bundle"
       bundle :install
       expect(out).to include("Bundle complete!")
       expect(err).to be_empty
@@ -1399,7 +1399,7 @@ RSpec.describe "bundle install with gem sources" do
     end
 
     it "works" do
-      bundle "config path #{app_path}/vendor/bundle", dir: app_path
+      bundle "config set path #{app_path}/vendor/bundle", dir: app_path
 
       install_gemfile app_path.join("Gemfile"),<<~G, dir: app_path
         source "https://gem.repo4"
@@ -1808,7 +1808,7 @@ RSpec.describe "bundle install with gem sources" do
     before do
       symlinked_bundled_app = tmp("bundled_app-symlink")
       File.symlink(bundled_app, symlinked_bundled_app)
-      bundle "config path #{File.join(symlinked_bundled_app, ".vendor")}"
+      bundle "config set path #{File.join(symlinked_bundled_app, ".vendor")}"
 
       binman_path = tmp("binman")
       FileUtils.mkdir_p binman_path

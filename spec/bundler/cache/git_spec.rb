@@ -22,7 +22,7 @@ RSpec.describe "bundle cache with git" do
       gem "foo", :git => '#{lib_path("foo-1.0")}'
     G
 
-    bundle "config cache_all false"
+    bundle "config set cache_all false"
     bundle :cache
     expect(bundled_app("vendor/cache/foo-1.0-#{ref}")).not_to exist
 
@@ -249,7 +249,7 @@ RSpec.describe "bundle cache with git" do
       gem "foo", :git => '#{lib_path("foo-1.0")}'
     G
     bundle "config set global_gem_cache false"
-    bundle "config path vendor/bundle"
+    bundle "config set path vendor/bundle"
     bundle :install
 
     # Simulate old cache by copying the real cache folder to vendor/cache
@@ -280,7 +280,7 @@ RSpec.describe "bundle cache with git" do
       gem "foo", :git => '#{lib_path("foo-1.0")}'
     G
     bundle "config set global_gem_cache false"
-    bundle "config path vendor/bundle"
+    bundle "config set path vendor/bundle"
     bundle :install
 
     # Simulate old cache by copying the real cache folder to vendor/cache
@@ -309,7 +309,7 @@ RSpec.describe "bundle cache with git" do
       gem "foo", :git => '#{lib_path("foo-1.0")}'
     G
     bundle "config set global_gem_cache false"
-    bundle "config path vendor/bundle"
+    bundle "config set path vendor/bundle"
     bundle :install
 
     # Simulate old cache by copying the real cache folder to vendor/cache

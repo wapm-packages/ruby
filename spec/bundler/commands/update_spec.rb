@@ -816,7 +816,7 @@ RSpec.describe "bundle update" do
     end
 
     it "should fail loudly" do
-      bundle "config deployment true"
+      bundle "config set deployment true"
       bundle "update", all: true, raise_on_error: false
 
       expect(last_command).to be_failure
@@ -1525,7 +1525,7 @@ RSpec.describe "bundle update --bundler" do
   end
 
   it "updates the bundler version in the lockfile even if the latest version is not installed", :ruby_repo do
-    bundle "config path.system true"
+    bundle "config set path.system true"
 
     pristine_system_gems "bundler-9.0.0"
 

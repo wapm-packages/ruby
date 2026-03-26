@@ -9,13 +9,13 @@ RSpec.describe "install in deployment or frozen mode" do
   end
 
   it "fails without a lockfile and says that deployment requires a lock" do
-    bundle "config deployment true"
+    bundle "config set deployment true"
     bundle "install", raise_on_error: false
     expect(err).to include("The deployment setting requires a lockfile")
   end
 
   it "fails without a lockfile and says that frozen requires a lock" do
-    bundle "config frozen true"
+    bundle "config set frozen true"
     bundle "install", raise_on_error: false
     expect(err).to include("The frozen setting requires a lockfile")
   end

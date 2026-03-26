@@ -572,7 +572,7 @@ RSpec.describe "bundle install with gem sources" do
       FileUtils.cp gem_repo4("gems/bcrypt_pbkdf-1.1.1-arm64-darwin.gem"), app_cache
       FileUtils.cp gem_repo4("gems/bcrypt_pbkdf-1.1.1.gem"), app_cache
 
-      bundle "config cache_all_platforms true"
+      bundle "config set cache_all_platforms true"
 
       lockfile <<~L
         GEM

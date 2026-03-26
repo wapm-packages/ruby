@@ -135,7 +135,7 @@ RSpec.describe "bundle executable" do
     end
 
     it "prints the simulated version too when setting is enabled" do
-      bundle "config simulate_version 4", verbose: true
+      bundle "config set simulate_version 4", verbose: true
       bundle "info bundler", verbose: true
       expect(out).to start_with("Running `bundle info bundler --verbose` with bundler #{Bundler::VERSION} (simulating Bundler 4)")
     end
@@ -143,7 +143,7 @@ RSpec.describe "bundle executable" do
 
   context "with verbose configuration" do
     before do
-      bundle "config verbose true"
+      bundle "config set verbose true"
     end
 
     it "prints the running command" do
@@ -278,7 +278,7 @@ RSpec.describe "bundler executable" do
     bundler "--version"
     expect(out).to eq(Bundler::VERSION.to_s)
 
-    bundle "config simulate_version 5"
+    bundle "config set simulate_version 5"
     bundler "--version"
     expect(out).to eq("#{Bundler::VERSION} (simulating Bundler 5)")
   end

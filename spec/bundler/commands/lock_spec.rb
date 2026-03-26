@@ -2195,7 +2195,7 @@ RSpec.describe "bundle lock" do
       end
     end
 
-    bundle "config lockfile_checksums false"
+    bundle "config set lockfile_checksums false"
 
     simulate_platform "x86_64-linux" do
       install_gemfile <<-G
@@ -2229,7 +2229,7 @@ RSpec.describe "bundle lock" do
       build_gem "warning", "18.0.0"
     end
 
-    bundle "config lockfile_checksums false"
+    bundle "config set lockfile_checksums false"
 
     simulate_platform "x86_64-linux" do
       install_gemfile(<<-G, artifice: "endpoint")
