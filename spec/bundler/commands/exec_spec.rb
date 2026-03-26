@@ -385,7 +385,7 @@ RSpec.describe "bundle exec" do
       gem "foo"
     G
     [true, false].each do |l|
-      bundle "config set disable_exec_load #{l}"
+      config "disable_exec_load #{l}"
       bundle "exec myrackup", raise_on_error: false
       expect(err).to include "can't find executable myrackup for gem myrack. myrack is not currently included in the bundle, perhaps you meant to add it to your Gemfile?"
     end

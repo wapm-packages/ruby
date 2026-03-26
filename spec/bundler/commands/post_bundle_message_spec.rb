@@ -102,7 +102,7 @@ RSpec.describe "post bundle message" do
     let(:bundle_path) { bundled_app("cache") }
 
     it "shows proper messages according to the configured groups" do
-      bundle "config set --local path #{bundle_path}"
+      config "path #{bundle_path}"
       bundle :install
       expect(out).to include("Bundled gems are installed into `./cache`")
       expect(out).to_not include("Gems in the group")
@@ -114,7 +114,7 @@ RSpec.describe "post bundle message" do
     let(:bundle_path) { tmp("not_bundled_app") }
 
     it "shows proper messages according to the configured groups" do
-      bundle "config set --local path #{bundle_path}"
+      config "path #{bundle_path}"
       bundle :install
       expect(out).to include("Bundled gems are installed into `#{tmp("not_bundled_app")}`")
       expect(out).to_not include("Gems in the group")

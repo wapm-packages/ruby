@@ -1808,7 +1808,7 @@ RSpec.describe "bundle install with gem sources" do
     before do
       symlinked_bundled_app = tmp("bundled_app-symlink")
       File.symlink(bundled_app, symlinked_bundled_app)
-      bundle "config set path #{File.join(symlinked_bundled_app, ".vendor")}"
+      config "path #{File.join(symlinked_bundled_app, ".vendor")}"
 
       binman_path = tmp("binman")
       FileUtils.mkdir_p binman_path

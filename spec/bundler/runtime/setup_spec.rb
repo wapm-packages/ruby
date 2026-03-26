@@ -316,7 +316,7 @@ RSpec.describe "Bundler.setup" do
           gem "activesupport", "2.3.5"
         G
 
-        bundle "config set --local gemfile #{bundled_app("CustomGemfile")}"
+        config "gemfile #{bundled_app("CustomGemfile")}"
         bundle "install"
 
         ruby <<-R

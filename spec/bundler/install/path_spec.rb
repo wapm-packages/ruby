@@ -31,7 +31,7 @@ RSpec.describe "bundle install" do
       dir = bundled_app("bun++dle")
       dir.mkpath
 
-      bundle "config set --local path #{dir.join("vendor/bundle")}"
+      config "path #{dir.join("vendor/bundle")}"
       bundle :install, dir: dir
       expect(out).to include("installed into `./vendor/bundle`")
 

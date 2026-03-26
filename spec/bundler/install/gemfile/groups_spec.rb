@@ -248,7 +248,7 @@ RSpec.describe "bundle install with groups" do
           bundle :install
           expect(the_bundle).not_to include_gems "activesupport 2.3.5"
 
-          config "without 'emo lolercoaster'"
+          config "without emo lolercoaster"
           bundle :install
           expect(the_bundle).not_to include_gems "activesupport 2.3.5"
         end

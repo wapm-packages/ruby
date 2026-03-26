@@ -31,7 +31,7 @@ RSpec.describe "Running bin/* commands" do
   end
 
   it "allows absolute paths as a specification of where to install bin stubs" do
-    bundle "config set bin #{tmp("bin")}"
+    config "bin #{tmp("bin")}"
     bundle "binstubs myrack"
 
     gembin tmp("bin/myrackup")
