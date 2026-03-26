@@ -379,7 +379,7 @@ RSpec.describe "bundle exec" do
   it "raises a helpful error when exec'ing to something outside of the bundle" do
     system_gems(%w[myrack-1.0.0 myrack-0.9.1], path: default_bundle_path)
 
-    bundle "config set clean false" # want to keep the myrackup binstub
+    config "clean false" # want to keep the myrackup binstub
     install_gemfile <<-G
       source "https://gem.repo1"
       gem "foo"

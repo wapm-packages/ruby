@@ -110,7 +110,7 @@ RSpec.describe "bundle update" do
   end
 
   context "when update_requires_all_flag is set" do
-    before { bundle "config set update_requires_all_flag true" }
+    before { config "update_requires_all_flag true" }
 
     it "errors when passed nothing" do
       install_gemfile "source 'https://gem.repo1'"
