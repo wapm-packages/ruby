@@ -3591,7 +3591,7 @@ rb_fiber_pool_initialize(int argc, VALUE* argv, VALUE self)
  */
 
 static size_t
-shared_fiber_pool_minimum_count()
+shared_fiber_pool_minimum_count(void)
 {
     size_t minimum_count = FIBER_POOL_MINIMUM_COUNT;
 
@@ -3611,7 +3611,7 @@ shared_fiber_pool_minimum_count()
 }
 
 static size_t
-shared_fiber_pool_maximum_count()
+shared_fiber_pool_maximum_count(void)
 {
     size_t maximum_count = 0;
 
