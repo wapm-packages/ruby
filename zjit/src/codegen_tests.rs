@@ -421,6 +421,33 @@ fn test_getblockparamproxy() {
 }
 
 #[test]
+fn test_getblockparamproxy_modified() {
+    eval("
+        def test(&block)
+          b = block
+          0.then(&block)
+        end
+        test { 1 }
+    ");
+    assert_contains_opcode("test", YARVINSN_getblockparamproxy);
+    assert_snapshot!(inspect("test { 1 }"), @"1");
+}
+
+#[test]
+fn test_getblockparamproxy_modified_nested_block() {
+    eval("
+        def test(&block)
+          proc do
+            b = block
+            0.then(&block)
+          end
+        end
+        test { 1 }.call
+    ");
+    assert_snapshot!(inspect("test { 1 }.call"), @"1");
+}
+
+#[test]
 fn test_getblockparam() {
     eval("
         def test(&blk)
@@ -462,9 +489,7 @@ fn test_setblockparam_nested_block() {
 }
 
 #[test]
-fn test_setblockparam_side_exit() {
-    // This pattern side exits because `block.call` goes through
-    // getblockparamproxy's modified-block-parameter case.
+fn test_getblockparamproxy_after_setblockparam() {
     eval("
         def test(&block)
           block = proc { 3 }
@@ -473,21 +498,7 @@ fn test_setblockparam_side_exit() {
         test { 1 }
     ");
     assert_contains_opcode("test", YARVINSN_setblockparam);
-    assert_snapshot!(inspect("test { 1 }"), @"3");
-}
-
-#[test]
-fn test_getblockparam_proxy_side_exit_restores_block_local() {
-    eval("
-        def test(&block)
-          b = block
-          raise \"test\" unless block
-          b ? 2 : 3
-        end
-        test {}
-    ");
-    assert_contains_opcode("test", YARVINSN_getblockparam);
-    assert_snapshot!(assert_compiles("test {}"), @"2");
+    assert_snapshot!(assert_compiles("test { 1 }"), @"3");
 }
 
 #[test]
