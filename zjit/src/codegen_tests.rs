@@ -2400,6 +2400,39 @@ fn test_opt_duparray_send_include_p_redefined() {
 }
 
 #[test]
+fn test_opt_newarray_send_pack() {
+    eval(r#"
+        def test(num)
+          [num].pack('C')
+        end
+        test(65)
+    "#);
+    assert_contains_opcode("test", YARVINSN_opt_newarray_send);
+    assert_snapshot!(assert_compiles(r#"
+        [test(65), test(66), test(67)]
+    "#), @r#"["A", "B", "C"]"#);
+}
+
+#[test]
+fn test_opt_newarray_send_pack_redefined() {
+    eval(r#"
+        class Array
+          alias_method :old_pack, :pack
+          def pack(fmt, buffer: nil)
+            "override:#{old_pack(fmt, buffer: buffer)}"
+          end
+        end
+        def test(num)
+          [num].pack('C')
+        end
+    "#);
+    assert_contains_opcode("test", YARVINSN_opt_newarray_send);
+    assert_snapshot!(assert_compiles(r#"
+        [test(65), test(66), test(67)]
+    "#), @r#"["override:A", "override:B", "override:C"]"#);
+}
+
+#[test]
 fn test_opt_newarray_send_pack_buffer() {
     eval(r#"
         def test(num, buffer)
