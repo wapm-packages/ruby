@@ -156,8 +156,8 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
     env = defined?(Bundler.unbundled_env) ? Bundler.unbundled_env : ENV.to_h
     out, st = Open3.capture2e(
       env,
-      Gem.ruby, "-S", "gem", "exec",
-      "sigstore-cli:0.2.2", "sign", name, "--bundle", bundle,
+      Gem.ruby, "-S", "gem", "exec", "--conservative",
+      "sigstore-cli", "sign", name, "--bundle", bundle,
       unsetenv_others: true
     )
     raise Gem::Exception, "Failed to sign gem:\n\n#{out}" unless st.success?
