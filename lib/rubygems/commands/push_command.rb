@@ -135,7 +135,13 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
       request.add_field "Authorization", api_key
     end
   rescue StandardError => e
-    alert_warning "Failed to push with attestation, retrying without attestation.\n#{e.full_message}"
+    message = "Failed to push with attestation, retrying without attestation.\n"
+    message += if Gem.configuration.really_verbose
+      e.full_message
+    else
+      e.message
+    end
+    alert_warning message
     send_push_request_without_attestation(name, args)
   end
 
