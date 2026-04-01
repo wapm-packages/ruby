@@ -3624,6 +3624,97 @@ fn test_attr_accessor_getivar() {
 }
 
 #[test]
+fn test_getivar_t_data_then_string() {
+    // This is a regression test for a type confusion miscomp where
+    // we end up reading the fields object using an offset off of a
+    // string, assuming that it has a the same layout as a T_DATA object.
+    // At the time of writing the fields object of strings are stored
+    // in a global table, out-of-line of each string.
+    // The string and the thread end up sharing one shape ID.
+    set_call_threshold(2);
+    eval(r#"
+      module GetThousand
+        def test = @var1000
+      end
+      class Thread
+        include GetThousand
+      end
+      class String
+        include GetThousand
+      end
+      OBJ = Thread.new { }
+      OBJ.join
+      STR = +''
+      (0..1000).each do |i|
+        ivar_name = :"@var#{i}"
+        OBJ.instance_variable_set(ivar_name, i)
+        STR.instance_variable_set(ivar_name, i)
+      end
+      OBJ.test; OBJ.test # profile and compile for Thread (T_DATA)
+    "#);
+    assert_snapshot!(assert_compiles("[STR.test, STR.test]"), @"[1000, 1000]");
+}
+
+#[test]
+fn test_getivar_t_object_then_string() {
+    // This test construct an object and a string that have the same set of ivars.
+    // They wouldn't share the same shape ID, though, and we rely on this fact in
+    // our guards.
+    set_call_threshold(2);
+    eval(r#"
+      module GetThousand
+        def test = @var1000
+      end
+      class MyObject
+        include GetThousand
+      end
+      class String
+        include GetThousand
+      end
+      OBJ = MyObject.new
+      STR = +''
+      (0..1000).each do |i|
+        ivar_name = :"@var#{i}"
+        OBJ.instance_variable_set(ivar_name, i)
+        STR.instance_variable_set(ivar_name, i)
+      end
+      OBJ.test; OBJ.test # profile and compile for MyObject
+    "#);
+    assert_snapshot!(assert_compiles("[STR.test, STR.test]"), @"[1000, 1000]");
+}
+
+#[test]
+fn test_getivar_t_class_then_string() {
+    // This is a regression test for a type confusion miscomp where
+    // we end up reading the fields object using an offset off of a
+    // string, assuming that it has a the same layout as a T_CLASS object.
+    // At the time of writing the fields object of strings are stored
+    // in a global table, out-of-line of each string.
+    // The string and the class end up sharing one shape ID.
+    set_call_threshold(2);
+    eval(r#"
+      module GetThousand
+        def test = @var1000
+      end
+      class MyClass
+        extend GetThousand
+      end
+      class String
+        include GetThousand
+      end
+      STR = +''
+      (0..1000).each do |i|
+        ivar_name = :"@var#{i}"
+        MyClass.instance_variable_set(ivar_name, i)
+        STR.instance_variable_set(ivar_name, i)
+      end
+      p MyClass.test; p MyClass.test # profile and compile for MyClass
+      p STR.test
+    "#);
+    assert_snapshot!(assert_compiles("[STR.test, STR.test]"), @"[1000, 1000]");
+}
+
+#[test]
 fn test_attr_accessor_setivar() {
     eval("
         class C

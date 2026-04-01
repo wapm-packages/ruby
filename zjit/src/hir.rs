@@ -4431,6 +4431,23 @@ impl Function {
         }
     }
 
+    /// This puts a guard that establishes the preconditon for [Self::load_ivar]
+    fn load_ivar_guard_type(&mut self, block: BlockId, recv: InsnId, recv_type: ProfiledType, state: InsnId) -> InsnId {
+        if recv_type.class().is_subclass_of(unsafe { rb_cClass }) == ClassRelationship::Subclass {
+            // Check class first since `Class < Module`
+            self.push_insn(block, Insn::GuardType { val: recv, guard_type: types::Class, state })
+        } else if recv_type.class().is_subclass_of(unsafe { rb_cModule }) == ClassRelationship::Subclass {
+            self.push_insn(block, Insn::GuardType { val: recv, guard_type: types::Module, state })
+        } else if recv_type.flags().is_typed_data() {
+            self.push_insn(block, Insn::GuardType { val: recv, guard_type: types::TypedTData, state })
+        } else {
+            // HeapBasicObject is wider than T_OBJECT, but shapes for T_OBJECTs are in a pool of
+            // its own and are guaranteed to be different from shapes of any other T_* types. So
+            // the shape check that follows already covers checking for T_OBJECT.
+            self.push_insn(block, Insn::GuardType { val: recv, guard_type: types::HeapBasicObject, state })
+        }
+    }
+
     fn load_ivar(&mut self, block: BlockId, self_val: InsnId, recv_type: ProfiledType, id: ID, state: InsnId) -> InsnId {
         // Too-complex shapes use hash tables; rb_shape_get_iv_index doesn't support them.
         // Callers must filter these out before calling load_ivar.
@@ -4500,7 +4517,7 @@ impl Function {
                             self.count(block, Counter::getivar_fallback_too_complex);
                             self.push_insn_id(block, insn_id); continue;
                         }
-                        let self_val = self.push_insn(block, Insn::GuardType { val: self_val, guard_type: types::HeapBasicObject, state });
+                        let self_val = self.load_ivar_guard_type(block, self_val, recv_type, state);
                         let shape = self.load_shape(block, self_val);
                         self.guard_shape(block, shape, recv_type.shape(), state);
                         let replacement = self.load_ivar(block, self_val, recv_type, id, state);
@@ -4529,7 +4546,7 @@ impl Function {
                             self.count(block, Counter::definedivar_fallback_too_complex);
                             self.push_insn_id(block, insn_id); continue;
                         }
-                        let self_val = self.push_insn(block, Insn::GuardType { val: self_val, guard_type: types::HeapBasicObject, state });
+                        let self_val = self.load_ivar_guard_type(block, self_val, recv_type, state);
                         let shape = self.load_shape(block, self_val);
                         self.guard_shape(block, shape, recv_type.shape(), state);
                         let mut ivar_index: u16 = 0;
@@ -4601,7 +4618,7 @@ impl Function {
                             }
                             // Fall through to emitting the ivar write
                         }
-                        let self_val = self.push_insn(block, Insn::GuardType { val: self_val, guard_type: types::HeapBasicObject, state });
+                        let self_val = self.load_ivar_guard_type(block, self_val, recv_type, state);
                         let shape = self.load_shape(block, self_val);
                         self.guard_shape(block, shape, recv_type.shape(), state);
                         // Current shape contains this ivar

@@ -2549,7 +2549,7 @@ fn gen_guard_type(jit: &mut JITState, asm: &mut Assembler, val: lir::Opnd, guard
 
         asm.cmp(klass, Opnd::Value(expected_class));
         asm.jne(jit, side_exit);
-    } else if guard_type.is_subtype(types::String) {
+    } else if guard_type.is_subtype(types::TypedTData) {
         let side = side_exit(jit, state, GuardType(guard_type));
 
         // Check special constant
@@ -2560,13 +2560,15 @@ fn gen_guard_type(jit: &mut JITState, asm: &mut Assembler, val: lir::Opnd, guard
         asm.cmp(val, Qfalse.into());
         asm.je(jit, side.clone());
 
+        // Check the builtin type and RUBY_TYPED_FL_IS_TYPED_DATA with mask and compare
         let val = asm.load_mem(val);
-
         let flags = asm.load(Opnd::mem(VALUE_BITS, val, RUBY_OFFSET_RBASIC_FLAGS));
-        let tag   = asm.and(flags, Opnd::UImm(RUBY_T_MASK as u64));
-        asm.cmp(tag, Opnd::UImm(RUBY_T_STRING as u64));
+        let mask     = RUBY_T_MASK.to_usize() | RUBY_TYPED_FL_IS_TYPED_DATA.to_usize();
+        let expected = RUBY_T_DATA.to_usize() | RUBY_TYPED_FL_IS_TYPED_DATA.to_usize();
+        let masked = asm.and(flags, mask.into());
+        asm.cmp(masked, expected.into());
         asm.jne(jit, side);
-    } else if guard_type.is_subtype(types::Array) {
+    } else if let Some(builtin_type) = guard_type.builtin_type_equivalent() {
         let side = side_exit(jit, state, GuardType(guard_type));
 
         // Check special constant
@@ -2577,11 +2579,11 @@ fn gen_guard_type(jit: &mut JITState, asm: &mut Assembler, val: lir::Opnd, guard
         asm.cmp(val, Qfalse.into());
         asm.je(jit, side.clone());
 
+        // Mask and check the builtin type
         let val = asm.load_mem(val);
-
         let flags = asm.load(Opnd::mem(VALUE_BITS, val, RUBY_OFFSET_RBASIC_FLAGS));
         let tag   = asm.and(flags, Opnd::UImm(RUBY_T_MASK as u64));
-        asm.cmp(tag, Opnd::UImm(RUBY_T_ARRAY as u64));
+        asm.cmp(tag, Opnd::UImm(builtin_type as u64));
         asm.jne(jit, side);
     } else if guard_type.bit_equal(types::HeapBasicObject) {
         let side_exit = side_exit(jit, state, GuardType(guard_type));
