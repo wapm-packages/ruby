@@ -3749,7 +3749,7 @@ pm_compile_call(rb_iseq_t *iseq, const pm_call_node_t *call_node, LINK_ANCHOR *c
 
     if (PM_NODE_FLAG_P(call_node, PM_CALL_NODE_FLAGS_SAFE_NAVIGATION)) {
         if (PM_BRANCH_COVERAGE_P(iseq)) {
-            uint32_t end_cursor;
+            uint32_t end_cursor = 0;
             bool end_found = false;
 
             if (call_node->closing_loc.length > 0) {
