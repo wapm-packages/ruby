@@ -92,8 +92,9 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
   private
 
   def send_push_request(name, args)
-    # Attestation is only supported on rubygems.org with GitHub Actions (not JRuby)
-    if RUBY_ENGINE != "jruby" && attestation_supported_host? && ENV["GITHUB_ACTIONS"]
+    # Always honor explicit --attestation option
+    # Auto-attestation is only supported on rubygems.org with GitHub Actions (not JRuby)
+    if options[:attestations].any? || (RUBY_ENGINE != "jruby" && attestation_supported_host? && ENV["GITHUB_ACTIONS"])
       send_push_request_with_attestation(name, args)
     else
       send_push_request_without_attestation(name, args)

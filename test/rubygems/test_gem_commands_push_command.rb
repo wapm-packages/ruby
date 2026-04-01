@@ -103,26 +103,19 @@ class TestGemCommandsPushCommand < Gem::TestCase
   end
 
   def test_execute_attestation
-    omit if RUBY_ENGINE == "jruby"
+    @response = "Successfully registered gem: freewill (1.0.0)"
+    @fetcher.data["#{Gem.host}/api/v1/gems"] = HTTPResponseFactory.create(body: @response, code: 200, msg: "OK")
 
-    ENV["GITHUB_ACTIONS"] = "true"
-    begin
-      @response = "Successfully registered gem: freewill (1.0.0)"
-      @fetcher.data["#{Gem.host}/api/v1/gems"] = HTTPResponseFactory.create(body: @response, code: 200, msg: "OK")
+    File.write("#{@path}.sigstore.json", "attestation")
+    @cmd.options[:args] = [@path]
+    @cmd.options[:attestations] = ["#{@path}.sigstore.json"]
 
-      File.write("#{@path}.sigstore.json", "attestation")
-      @cmd.options[:args] = [@path]
-      @cmd.options[:attestations] = ["#{@path}.sigstore.json"]
+    @cmd.execute
 
-      @cmd.execute
-
-      assert_equal Gem::Net::HTTP::Post, @fetcher.last_request.class
-      content_length = @fetcher.last_request["Content-Length"].to_i
-      assert_equal content_length, @fetcher.last_request.body.length
-      assert_attestation_multipart Gem.read_binary("#{@path}.sigstore.json")
-    ensure
-      ENV.delete("GITHUB_ACTIONS")
-    end
+    assert_equal Gem::Net::HTTP::Post, @fetcher.last_request.class
+    content_length = @fetcher.last_request["Content-Length"].to_i
+    assert_equal content_length, @fetcher.last_request.body.length
+    assert_attestation_multipart Gem.read_binary("#{@path}.sigstore.json")
   end
 
   def test_execute_attestation_auto
