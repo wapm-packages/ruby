@@ -179,6 +179,7 @@ The push command will use ~/.gem/credentials to authenticate to a server, but yo
   end
 
   def attestation_supported_host?
-    (@host || Gem.host) == "https://rubygems.org"
+    host = (@host || Gem.host).to_s.chomp("/")
+    host == Gem::DEFAULT_HOST
   end
 end
