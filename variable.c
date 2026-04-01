@@ -1008,7 +1008,7 @@ VALUE
 rb_gvar_set(ID id, VALUE val)
 {
     VALUE retval;
-    struct rb_global_entry *entry;
+    struct rb_global_entry *entry = NULL;
     const rb_box_t *box = rb_current_box();
     bool use_box_tbl = false;
 
@@ -1041,8 +1041,8 @@ rb_gvar_get(ID id)
     VALUE retval, gvars, key;
     const rb_box_t *box = rb_current_box();
     bool use_box_tbl = false;
-    struct rb_global_entry *entry;
-    struct rb_global_variable *var;
+    struct rb_global_entry *entry = NULL;
+    struct rb_global_variable *var = NULL;
     // TODO: use lock-free rb_id_table when it's available for use (doesn't yet exist)
     RB_VM_LOCKING() {
         entry = rb_global_entry(id);
