@@ -1053,11 +1053,12 @@ total_final_slots_count(rb_objspace_t *objspace)
  * so larger slot pools (which are less heavily used) naturally get
  * fewer slots swept per step.
  *
- * Baseline: 2048 slots * RVALUE_SLOT_SIZE = 2048 * 40 = 81920 bytes,
- * preserving the historical behavior for the smallest heap.
+ * Baseline: preserves the historical sweep/pool slot counts (2048/1024)
+ * for the second heap (2 * RVALUE_SLOT_SIZE = 80 bytes). The smallest
+ * heap sweeps more per step (4096/2048 slots), larger heaps taper down.
  */
-#define GC_INCREMENTAL_SWEEP_BYTES           (2048 * RVALUE_SLOT_SIZE)
-#define GC_INCREMENTAL_SWEEP_POOL_BYTES      (1024 * RVALUE_SLOT_SIZE)
+#define GC_INCREMENTAL_SWEEP_BYTES           (2048 * RVALUE_SLOT_SIZE * 2)
+#define GC_INCREMENTAL_SWEEP_POOL_BYTES      (1024 * RVALUE_SLOT_SIZE * 2)
 #define is_lazy_sweeping(objspace)           (GC_ENABLE_LAZY_SWEEP && has_sweeping_pages(objspace))
 /* In lazy sweeping or the previous incremental marking finished and did not yield a free page. */
 #define needs_continue_sweeping(objspace, heap) \
