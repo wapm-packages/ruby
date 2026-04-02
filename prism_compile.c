@@ -11458,6 +11458,37 @@ pm_parse_file_script_lines(const pm_scope_node_t *scope_node, const pm_parser_t 
     return lines;
 }
 
+struct load_from_fd_args {
+    VALUE path;
+    VALUE io;
+    int open_mode;
+    int fd;
+};
+
+static VALUE
+close_file(VALUE args)
+{
+    struct load_from_fd_args *arg = (void *)args;
+    if (arg->fd != -1) {
+        close(arg->fd);
+    }
+    else if (!NIL_P(arg->io)) {
+        rb_io_close(arg->io);
+    }
+    return Qnil;
+}
+
+static VALUE
+load_content(VALUE args)
+{
+    struct load_from_fd_args *arg = (void *)args;
+    VALUE io = rb_io_fdopen(arg->fd, arg->open_mode, RSTRING_PTR(arg->path));
+    arg->io = io;
+    arg->fd = -1;
+    rb_io_wait(io, RB_INT2NUM(RUBY_IO_READABLE), Qnil);
+    return rb_funcall(io, rb_intern("read"), 0);
+}
+
 /**
  * Attempt to load the file into memory. Return a Ruby error if the file cannot
  * be read.
@@ -11478,13 +11509,14 @@ pm_load_file(pm_parse_result_t *result, VALUE filepath, bool load_error)
     // For non-regular files (pipes, character devices), we need to read
     // through Ruby IO to properly release the GVL while waiting for data.
     if (init_result == PM_SOURCE_INIT_ERROR_NON_REGULAR) {
-        const int open_mode = O_RDONLY | O_NONBLOCK;
-        int fd = open(RSTRING_PTR(filepath), open_mode);
-        if (fd == -1) goto error_generic;
-
-        VALUE io = rb_io_fdopen(fd, open_mode, RSTRING_PTR(filepath));
-        rb_io_wait(io, RB_INT2NUM(RUBY_IO_READABLE), Qnil);
-        VALUE contents = rb_funcall(io, rb_intern("read"), 0);
+        struct load_from_fd_args args = {
+            .path = filepath,
+            .open_mode = O_RDONLY | O_NONBLOCK,
+            .fd = rb_cloexec_open(RSTRING_PTR(filepath), args.open_mode, 0),
+            .io = Qnil,
+        };
+        if (args.fd == -1) goto error_generic;
+        VALUE contents = rb_ensure(load_content, (VALUE)&args, close_file, (VALUE)&args);
 
         if (!RB_TYPE_P(contents, T_STRING)) goto error_generic;
 
