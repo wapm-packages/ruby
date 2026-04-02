@@ -561,7 +561,7 @@ EOM
       # "attempt to close unfinished zstream; reset forced" warning
       # when the GzipReader is closed with unconsumed compressed data.
       begin
-        gzio.read
+        IO.copy_stream(gzio, IO::NULL)
       rescue Zlib::GzipFile::Error, IOError
         nil
       end
