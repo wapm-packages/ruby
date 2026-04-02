@@ -548,7 +548,8 @@ class TestSocket < Test::Unit::TestCase
       timestamp_retry_rw(s1, :BINTIME)
     }
     t = stamp.timestamp
-    assert_equal(stamp.data.unpack1("Q", offset: -8), t.subsec * 2**64)
+    data = stamp.data
+    assert_equal(data.unpack1("Q", offset: data.bytesize-8), t.subsec * 2**64)
   end
 
   def test_closed_read
