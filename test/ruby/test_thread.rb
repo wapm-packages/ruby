@@ -798,7 +798,7 @@ class TestThread < Test::Unit::TestCase
 
   def for_test_handle_interrupt_with_return
     Thread.handle_interrupt(Object => :never){
-      Thread.current.raise RuntimeError.new("have to be rescured")
+      Thread.current.raise RuntimeError.new("have to be rescued")
       return
     }
   rescue
@@ -815,7 +815,7 @@ class TestThread < Test::Unit::TestCase
     assert_nothing_raised do
       begin
         Thread.handle_interrupt(Object => :never){
-          Thread.current.raise RuntimeError.new("have to be rescured")
+          Thread.current.raise RuntimeError.new("have to be rescued")
           break
         }
       rescue
