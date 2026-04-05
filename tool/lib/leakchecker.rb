@@ -113,8 +113,14 @@ class LeakChecker
       }
       unless fd_leaked.empty?
         unless @@try_lsof == false
-          open_list = IO.popen(%W[lsof -w -a -d #{fd_leaked.minmax.uniq.join("-")} -p #$$], &:readlines)
-          if @@try_lsof |= $?.success?
+          begin
+            open_list = IO.popen(%W[lsof -w -a -d #{fd_leaked.minmax.uniq.join("-")} -p #$$], &:readlines)
+          rescue
+            @@try_lsof = false
+          else
+            @@try_lsof |= $?.success?
+          end
+          if @@try_lsof
             columns = (header = open_list.shift).split
             fd_index, node_index = columns.index('FD'), columns.index('NODE')
             open_list.reject! do |of|
