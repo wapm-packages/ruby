@@ -135,8 +135,8 @@ class LeakChecker
                 false
               end
             end
+            puts(header, open_list) unless open_list.empty?
           end
-          puts(header, open_list) unless open_list.empty?
         end
       end
       inspect.each {|fd, (str, pos)|
