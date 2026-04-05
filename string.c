@@ -4920,9 +4920,9 @@ rb_str_byterindex(VALUE str, VALUE sub, long pos)
  *    s.size              # => 3 # Three 1-byte characters.
  *    s.bytesize          # => 3 # Three bytes.
  *    s.byterindex('f')   # => 0
-      s.byterindex('o')   # => 2
-      s.byterindex('oo')  # => 1
-      s.byterindex('ooo') # => nil
+ *    s.byterindex('o')   # => 2
+ *    s.byterindex('oo')  # => 1
+ *    s.byterindex('ooo') # => nil
  *
  *  When +object+ is a Regexp,
  *  returns the index of the last found substring matching +object+;
