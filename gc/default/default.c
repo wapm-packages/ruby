@@ -680,7 +680,7 @@ typedef struct rb_objspace {
 
     unsigned long live_ractor_cache_count;
 
-    unsigned int sweeping_heaps; /* bitfield: bit i set while heap i is sweeping */
+    int sweeping_heap_count;
 
     int fork_vm_lock_lev;
 } rb_objspace_t;
@@ -1018,7 +1018,7 @@ gc_mode_verify(enum gc_mode mode)
 static inline bool
 has_sweeping_pages(rb_objspace_t *objspace)
 {
-    return objspace->sweeping_heaps != 0;
+    return objspace->sweeping_heap_count != 0;
 }
 
 static inline size_t
@@ -3017,7 +3017,7 @@ gc_abort(void *objspace_ptr)
     }
 
     if (is_lazy_sweeping(objspace)) {
-        objspace->sweeping_heaps = 0;
+        objspace->sweeping_heap_count = 0;
         for (int i = 0; i < HEAP_COUNT; i++) {
             rb_heap_t *heap = &heaps[i];
 
@@ -3753,7 +3753,7 @@ gc_sweep_start_heap(rb_objspace_t *objspace, rb_heap_t *heap)
 {
     heap->sweeping_page = ccan_list_top(&heap->pages, struct heap_page, page_node);
     if (heap->sweeping_page) {
-        objspace->sweeping_heaps |= (1u << (heap - heaps));
+        objspace->sweeping_heap_count++;
     }
     heap->free_pages = NULL;
     heap->pooled_pages = NULL;
@@ -3982,7 +3982,8 @@ gc_sweep_step(rb_objspace_t *objspace, rb_heap_t *heap)
     } while ((sweep_page = heap->sweeping_page));
 
     if (!heap->sweeping_page) {
-        objspace->sweeping_heaps &= ~(1u << (heap - heaps));
+        objspace->sweeping_heap_count--;
+        GC_ASSERT(objspace->sweeping_heap_count >= 0);
         gc_sweep_finish_heap(objspace, heap);
 
         if (!has_sweeping_pages(objspace)) {
