@@ -194,33 +194,28 @@ static RB_THREAD_LOCAL_SPECIFIER int malloc_increase_local;
 # endif
 #endif
 
+/* The reciprocal table and pool_slot_sizes array are both generated from this
+ * single definition, so they can never get out of sync. */
+#if SIZEOF_VALUE >= 8
+# define EACH_POOL_SLOT_SIZE(SLOT) \
+    SLOT(32) SLOT(40) SLOT(64) SLOT(80) SLOT(96) SLOT(128) \
+    SLOT(160) SLOT(256) SLOT(512) SLOT(640) SLOT(768) SLOT(1024)
+#else
+# define EACH_POOL_SLOT_SIZE(SLOT) \
+    SLOT(32) SLOT(64) SLOT(128) SLOT(256) SLOT(512)
+#endif
+
 /* Precomputed reciprocals for fast slot index calculation.
  * For slot size d: reciprocal = ceil(2^48 / d).
  * Then offset / d == (uint32_t)((offset * reciprocal) >> 48)
  * for all offset < HEAP_PAGE_SIZE. */
 #define SLOT_RECIPROCAL_SHIFT 48
+#define SLOT_RECIPROCAL(size) (((1ULL << SLOT_RECIPROCAL_SHIFT) + (size) - 1) / (size))
 
 static const uint64_t heap_slot_reciprocal_table[HEAP_COUNT] = {
-#if SIZEOF_VALUE >= 8
-    /* 32   */ (1ULL << 48) / 32,
-    /* 40   */ (1ULL << 48) / 40 + 1,
-    /* 64   */ (1ULL << 48) / 64,
-    /* 80   */ (1ULL << 48) / 80 + 1,
-    /* 96   */ (1ULL << 48) / 96 + 1,
-    /* 128  */ (1ULL << 48) / 128,
-    /* 160  */ (1ULL << 48) / 160 + 1,
-    /* 256  */ (1ULL << 48) / 256,
-    /* 512  */ (1ULL << 48) / 512,
-    /* 640  */ (1ULL << 48) / 640 + 1,
-    /* 768  */ (1ULL << 48) / 768 + 1,
-    /* 1024 */ (1ULL << 48) / 1024,
-#else
-    /* 32  */ (1ULL << 48) / 32,
-    /* 64  */ (1ULL << 48) / 64,
-    /* 128 */ (1ULL << 48) / 128,
-    /* 256 */ (1ULL << 48) / 256,
-    /* 512 */ (1ULL << 48) / 512,
-#endif
+#define SLOT(size) SLOT_RECIPROCAL(size),
+    EACH_POOL_SLOT_SIZE(SLOT)
+#undef SLOT
 };
 typedef struct ractor_newobj_heap_cache {
     struct free_slot *freelist;
@@ -723,15 +718,16 @@ size_t rb_gc_impl_obj_slot_size(VALUE obj);
 
 #define RVALUE_SLOT_SIZE (sizeof(struct RBasic) + sizeof(VALUE[RBIMPL_RVALUE_EMBED_LEN_MAX]) + RVALUE_OVERHEAD)
 
-#if SIZEOF_VALUE >= 8
 static const size_t pool_slot_sizes[HEAP_COUNT] = {
-    32, 40, 64, 80, 96, 128, 160, 256, 512, 640, 768, 1024,
+#define SLOT(size) size,
+    EACH_POOL_SLOT_SIZE(SLOT)
+#undef SLOT
 };
+
+
+#if SIZEOF_VALUE >= 8
 static uint8_t size_to_heap_idx[1024 / 8 + 1];
 #else
-static const size_t pool_slot_sizes[HEAP_COUNT] = {
-    32, 64, 128, 256, 512,
-};
 static uint8_t size_to_heap_idx[512 / 8 + 1];
 #endif
 
