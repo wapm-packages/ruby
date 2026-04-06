@@ -1539,8 +1539,7 @@ Init_default_shapes(void)
     while (heap_sizes[heaps_count]) {
         heaps_count++;
     }
-    attr_index_t *capacities = ALLOC_N(attr_index_t, heaps_count + 1);
-    capacities[heaps_count] = 0;
+    attr_index_t *capacities = ALLOC_N(attr_index_t, heaps_count);
     size_t index;
     for (index = 0; index < heaps_count; index++) {
         if (heap_sizes[index] > sizeof(struct RBasic)) {
