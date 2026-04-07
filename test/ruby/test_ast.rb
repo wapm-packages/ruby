@@ -720,6 +720,7 @@ class TestAst < Test::Unit::TestCase
     assert_equal(nil, block_arg.call(''))
     assert_equal(:block, block_arg.call('&block'))
     assert_equal(:&, block_arg.call('&'))
+    assert_equal(false, block_arg.call('&nil'))
   end
 
   def test_keyword_rest
