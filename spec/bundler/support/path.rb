@@ -123,7 +123,7 @@ module Spec
         end
         Pathname(real)
       else
-        Pathname.new("../..").expand_path(__dir__).join("tmp")
+        (ruby_core? ? source_root : source_root.parent).join("tmp")
       end
     end
 
