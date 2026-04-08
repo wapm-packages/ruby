@@ -448,6 +448,20 @@ fn test_getblockparamproxy_modified_nested_block() {
 }
 
 #[test]
+fn test_getblockparamproxy_polymorphic_none_and_iseq() {
+    set_call_threshold(3);
+    eval("
+        def test(&block)
+          0.then(&block)
+        end
+        test
+        test { 1 }
+    ");
+    assert_contains_opcode("test", YARVINSN_getblockparamproxy);
+    assert_snapshot!(assert_compiles("test { 2 }"), @"2");
+}
+
+#[test]
 fn test_getblockparam() {
     eval("
         def test(&blk)

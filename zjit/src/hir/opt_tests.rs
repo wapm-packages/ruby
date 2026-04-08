@@ -4840,6 +4840,61 @@ mod hir_opt_tests {
     }
 
     #[test]
+    fn test_getblockparamproxy_polymorphic_none_and_iseq() {
+        set_call_threshold(3);
+        eval("
+            def test(&block)
+              0.then(&block)
+            end
+
+            test
+            test { 1 }
+        ");
+        assert_contains_opcode("test", YARVINSN_getblockparamproxy);
+        assert_snapshot!(hir_string("test"), @"
+        fn test@<compiled>:3:
+        bb1():
+          EntryPoint interpreter
+          v1:BasicObject = LoadSelf
+          v2:CPtr = LoadSP
+          v3:BasicObject = LoadField v2, :block@0x1000
+          Jump bb3(v1, v3)
+        bb2():
+          EntryPoint JIT(0)
+          v6:BasicObject = LoadArg :self@0
+          v7:BasicObject = LoadArg :block@1
+          Jump bb3(v6, v7)
+        bb3(v9:BasicObject, v10:BasicObject):
+          v14:Fixnum[0] = Const Value(0)
+          v18:CPtr = GetEP 0
+          v19:CBool = IsBlockParamModified v18
+          IfTrue v19, bb4()
+          v24:CInt64 = LoadField v18, :_env_data_index_specval@0x1001
+          v25:CInt64[1] = Const CInt64(1)
+          v26:CInt64 = IntAnd v24, v25
+          v27:CBool = IsBitEqual v26, v25
+          IfTrue v27, bb7()
+          v31:CInt64[0] = Const CInt64(0)
+          v32:CBool = IsBitEqual v24, v31
+          IfTrue v32, bb8()
+          SideExit BlockParamProxyProfileNotCovered
+        bb4():
+          v22:BasicObject = LoadField v18, :block@0x1002
+          Jump bb6(v22, v22)
+        bb7():
+          v29:ObjectSubclass[BlockParamProxy] = Const Value(VALUE(0x1008))
+          Jump bb6(v29, v10)
+        bb8():
+          v34:NilClass = Const Value(nil)
+          Jump bb6(v34, v10)
+        bb6(v16:BasicObject, v17:BasicObject):
+          v38:BasicObject = Send v14, &block, :then, v16 # SendFallbackReason: Complex argument passing
+          CheckInterrupts
+          Return v38
+        ");
+    }
+
+    #[test]
     fn test_getblockparam() {
         eval("
             def test(&block) = block
