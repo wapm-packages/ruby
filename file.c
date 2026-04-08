@@ -5977,7 +5977,7 @@ rb_f_test(int argc, VALUE *argv, VALUE _)
  *    File.atime(filepath) # => 2026-04-01 11:58:11.922614 -0500
  *    stat.atime           # => 2026-04-01 11:51:38.0014518 -0500
  *    File.delete(filepath)
-      stat.atime           # => 2026-04-01 11:51:38.0014518 -0500
+ *    stat.atime           # => 2026-04-01 11:51:38.0014518 -0500
  *
  *  === OS-Dependencies
  *
