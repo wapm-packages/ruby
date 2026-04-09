@@ -3030,14 +3030,16 @@ realclean: distclean
 
     def cc_command(opt="")
       conf = cc_config(opt)
+      cxx_command(opt, conf)
       RbConfig::expand("$(CXX) #$INCFLAGS #$CPPFLAGS #$CXXFLAGS #$ARCH_FLAG #{opt} -c #{CONFTEST_CXX}",
                        conf)
     end
 
     def cpp_command(outfile, opt="")
       conf = cpp_config(opt)
+      cxx = cxx_command(opt, conf)
       cpp = conf['CPP'].sub(/(\A|\s)#{Regexp.quote(conf['CC'])}(?=\z|\s)/) {
-        "#$1#{conf['CXX']}"
+        "#$1#{cxx}"
       }
       RbConfig::expand("#{cpp} #$INCFLAGS #$CPPFLAGS #$CXXFLAGS #{opt} #{CONFTEST_CXX} #{outfile}",
                        conf)
@@ -3046,6 +3048,12 @@ realclean: distclean
     def link_command(ldflags, *opts)
       conf = link_config(ldflags, *opts)
       RbConfig::expand(TRY_LINK_CXX.dup, conf)
+    end
+
+    def cxx_command(opt="", conf = cc_config(opt))
+      cxx = conf['CXX']
+      raise Errno::ENOENT, "C++ compiler not found" if !cxx or cxx == 'false'
+      cxx
     end
 
     # :startdoc:
