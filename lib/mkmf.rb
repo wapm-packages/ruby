@@ -938,13 +938,7 @@ SRC
         false
       else
         puts("    egrep '#{pat}'")
-        begin
-          stdin = $stdin.dup
-          $stdin.reopen(f)
-          system("egrep", pat)
-        ensure
-          $stdin.reopen(stdin)
-        end
+        system("egrep", pat, in: f)
       end
     end
   ensure
