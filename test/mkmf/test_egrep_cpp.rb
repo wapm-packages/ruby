@@ -20,6 +20,8 @@ class TestMkmfEgrepCpp < TestMkmf
       #error not C++
       #endif
       SRC
+    rescue Errno::ENOENT
+      omit "C++ compiler not available: #{$!.message}"
     end
   end
 end
