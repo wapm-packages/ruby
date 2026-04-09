@@ -931,11 +931,9 @@ SRC
     xpopen(cpp_command('', opt)) do |f|
       if Regexp === pat
         puts("    ruby -ne 'print if #{pat.inspect}'")
-        f.grep(pat) {|l|
+        !f.grep(pat) {|l|
           puts "#{f.lineno}: #{l}"
-          return true
-        }
-        false
+        }.empty?
       else
         puts("    egrep '#{pat}'")
         system("egrep", pat, in: f)
