@@ -219,6 +219,7 @@ jobs:
           persist-credentials: false
           repository: ruby/ruby-bench
           path: ruby-bench
+          ref: 'a46e02b01a58ca74bb2ce055b4ea561cb372d1cd'
 
       # If you want to skip failing benchmark, consider using `--excludes`.
       # e.g. `bench_opts: '--warmup=1 --bench=1 --excludes=railsbench,lobsters'`
