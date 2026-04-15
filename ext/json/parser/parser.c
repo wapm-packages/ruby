@@ -864,11 +864,11 @@ static inline VALUE json_decode_float(JSON_ParserConfig *config, uint64_t mantis
     }
 
     if (RB_UNLIKELY(exponent > INT32_MAX)) {
-        return CInfinity;
+        return negative ? CMinusInfinity : CInfinity;
     }
 
     if (RB_UNLIKELY(exponent < INT32_MIN)) {
-        return rb_float_new(0.0);
+        return rb_float_new(negative ? -0.0 : 0.0);
     }
 
     // Fall back to rb_cstr_to_dbl for potential subnormals (rare edge case)
