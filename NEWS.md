@@ -88,7 +88,9 @@ releases.
 
 ### The following bundled gems are updated.
 
-* minitest 6.0.3
+* minitest 6.0.4
+* rake 13.4.1
+  * 13.3.1 to [v13.4.0][rake-v13.4.0], [v13.4.1][rake-v13.4.1]
 * test-unit 3.7.7
   * 3.7.5 to [3.7.6][test-unit-3.7.6], [3.7.7][test-unit-3.7.7]
 * net-imap 0.6.3
@@ -182,6 +184,8 @@ A lot of work has gone into making Ractors more stable, performant, and usable. 
 [resolv-v0.7.1]: https://github.com/ruby/resolv/releases/tag/v0.7.1
 [strscan-v3.1.7]: https://github.com/ruby/strscan/releases/tag/v3.1.7
 [timeout-v0.6.1]: https://github.com/ruby/timeout/releases/tag/v0.6.1
+[rake-v13.4.0]: https://github.com/ruby/rake/releases/tag/v13.4.0
+[rake-v13.4.1]: https://github.com/ruby/rake/releases/tag/v13.4.1
 [test-unit-3.7.6]: https://github.com/test-unit/test-unit/releases/tag/3.7.6
 [test-unit-3.7.7]: https://github.com/test-unit/test-unit/releases/tag/3.7.7
 [net-imap-v0.6.3]: https://github.com/ruby/net-imap/releases/tag/v0.6.3
