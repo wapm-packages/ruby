@@ -82,7 +82,7 @@ releases.
 * stringio 3.2.1.dev
 * strscan 3.1.7.dev
   * 3.1.6 to [v3.1.7][strscan-v3.1.7]
-* syntax_suggest 2.0.3
+* syntax_suggest 3.0.0
 * timeout 0.6.1
   * 0.6.0 to [v0.6.1][timeout-v0.6.1]
 * zlib 3.2.3
