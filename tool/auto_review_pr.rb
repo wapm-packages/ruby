@@ -133,6 +133,7 @@ class AutoReviewPR
     text = "#{pr[:title]}\n#{pr[:body]}"
 
     tickets = text.scan(REDMINE_TICKET_PATTERN).uniq
+    tickets.reject! { |_, number| text.include?("https://bugs.ruby-lang.org/issues/#{number}") }
     if tickets.empty?
       puts "Skipped: The PR ##{pr_number} doesn't reference any Redmine tickets."
       return
