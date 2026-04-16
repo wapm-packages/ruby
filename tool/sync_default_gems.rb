@@ -295,7 +295,7 @@ module SyncDefaultGems
       "ext/strscan/regint.h",
       "ext/strscan/lib/strscan/truffleruby.rb",
     ]),
-    syntax_suggest: repo("ruby/syntax_suggest", [
+    syntax_suggest: repo(["ruby/syntax_suggest", "main"], [
       ["lib/syntax_suggest.rb", "lib/syntax_suggest.rb"],
       ["lib/syntax_suggest", "lib/syntax_suggest"],
       ["syntax_suggest.gemspec", "lib/syntax_suggest/syntax_suggest.gemspec"],
