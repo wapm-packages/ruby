@@ -21,7 +21,8 @@ end
 # Build a gem=>version map from stdgems.org stdgems.json for a given Ruby version (e.g., "3.4")
 def fetch_default_gems_versions(ruby_version)
   uri = URI.parse("https://stdgems.org/stdgems.json")
-  json = JSON.parse(Net::HTTP.get(uri))
+  body = http_get(uri)
+  json = JSON.parse(body)
   gems = json["gems"] || []
 
   map = {}
@@ -92,11 +93,22 @@ def fetch_versions_to_from_news(arg)
   if arg.downcase == "news"
     body = read_local_news_md
   else
-    uri = URI.parse(arg)
-    body = Net::HTTP.get(uri)
+    body = http_get(URI.parse(arg))
   end
 
   parse_stdlib_versions_from_news(body)
+end
+
+# Fetch a URL with a clear abort message on network or HTTP failures.
+# Used for sources whose absence makes the rest of the script meaningless.
+def http_get(uri)
+  res = Net::HTTP.get_response(uri)
+  unless res.is_a?(Net::HTTPSuccess)
+    abort "error: #{uri} returned HTTP #{res.code} #{res.message}"
+  end
+  res.body
+rescue SystemCallError, SocketError, IOError, Net::HTTPError => e
+  abort "error: failed to fetch #{uri}: #{e.class}: #{e.message}"
 end
 
 def read_local_news_md
@@ -159,8 +171,13 @@ end
 
 def fetch_release_range(name, from_version, to_version, org, repo)
   releases = []
-  Octokit.releases("#{org}/#{repo}").each do |release|
-    releases << release.tag_name
+  begin
+    Octokit.releases("#{org}/#{repo}").each do |release|
+      releases << release.tag_name
+    end
+  rescue Octokit::Error, Faraday::Error => e
+    warn "warning: skipping #{name} (#{org}/#{repo}): #{e.class}: #{e.message}"
+    return nil
   end
 
   # Keep only version-like tags and sort ascending by semantic version
