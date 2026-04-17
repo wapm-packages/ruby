@@ -118,6 +118,44 @@ def read_local_news_md
   File.read(news_path)
 end
 
+# Build a gem=>version map from the current repository state. Default gems
+# come from {ext,lib}/**/*.gemspec (mirroring default_gems_list.yml) and
+# bundled gems come from gems/bundled_gems. This avoids reading NEWS.md as
+# the source of "current versions", which would create a circular dependency
+# with update-NEWS-gemlist.rb.
+def load_current_versions
+  require "rubygems"
+  root = File.expand_path("..", __dir__)
+  map = {}
+
+  rg_path = File.join(root, "lib", "rubygems.rb")
+  if File.exist?(rg_path)
+    File.foreach(rg_path) do |line|
+      if /^\s*VERSION\s*=\s*"([^"]+)"/ =~ line
+        map["RubyGems"] = $1
+        break
+      end
+    end
+  end
+
+  Dir.glob(File.join(root, "{ext,lib}/**/*.gemspec")).each do |path|
+    spec = Gem::Specification.load(path)
+    next unless spec
+    map[spec.name] = spec.version.to_s
+  end
+
+  bundled_path = File.join(root, "gems", "bundled_gems")
+  if File.exist?(bundled_path)
+    File.foreach(bundled_path) do |line|
+      next if line.start_with?("#")
+      name, version = line.split(" ", 3)
+      map[name] = version if name && version
+    end
+  end
+
+  map
+end
+
 def parse_stdlib_versions_from_news(body)
   # Extract the Stdlib updates section
   start_idx = body.index(/^## Stdlib updates$/)
@@ -331,7 +369,7 @@ end
 update_mode = ARGV.delete("--update")
 
 versions_from = load_versions(ARGV[0])
-versions_to = load_versions("news")
+versions_to = load_current_versions
 
 results = collect_gem_updates(versions_from, versions_to)
 
