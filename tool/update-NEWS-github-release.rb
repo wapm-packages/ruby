@@ -263,15 +263,20 @@ def collect_gem_updates(versions_from, versions_to)
   results
 end
 
+def format_release_diff(result)
+  links = result[:release_range].map do |rel|
+    tag = rel.sub(/^bundler-/, "")
+    "[#{tag}][#{result[:name]}-#{tag}]"
+  end
+  "  * #{result[:from_version]} to #{links.join(', ')}"
+end
+
 def print_results(results)
   footnote_lines = []
 
   results.each do |r|
     puts "* #{r[:name]} #{r[:version]}"
-    links = r[:release_range].map { |rel|
-      "[#{rel.sub(/^bundler-/, '')}][#{r[:name]}-#{rel.sub(/^bundler-/, '')}]"
-    }
-    puts "  * #{r[:from_version]} to #{links.join(', ')}"
+    puts format_release_diff(r)
     r[:footnote_links].each do |fl|
       footnote_lines << "[#{fl[:ref]}]: #{fl[:url]}"
     end
@@ -311,12 +316,7 @@ def update_news_md(results)
           i += 1
         end
 
-        # Insert the version diff sub-bullet
-        links = r[:release_range].map { |rel|
-          "[#{rel.sub(/^bundler-/, '')}][#{r[:name]}-#{rel.sub(/^bundler-/, '')}]"
-        }
-        sub_bullet = "  * #{r[:from_version]} to #{links.join(', ')}\n"
-        new_lines << sub_bullet
+        new_lines << "#{format_release_diff(r)}\n"
       end
     else
       new_lines << line
