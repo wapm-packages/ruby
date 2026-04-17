@@ -24,6 +24,11 @@ def fetch_default_gems_versions(ruby_version)
   json = JSON.parse(body)
   gems = json["gems"] || []
 
+  # Prefer the initial release key (e.g. "4.0.0") over the rolling
+  # major.minor key (e.g. "4.0") so the diff baseline reflects the original
+  # X.Y.0 release rather than the latest patch level.
+  initial_release_key = (ruby_version =~ /\A\d+\.\d+\z/) ? "#{ruby_version}.0" : nil
+
   map = {}
   gems.each do |g|
     # Only include default gems (skip ones marked removed)
@@ -38,7 +43,9 @@ def fetch_default_gems_versions(ruby_version)
       category_versions = versions[category] || {}
       next if selected_version
 
-      if category_versions.key?(ruby_version)
+      if initial_release_key && category_versions.key?(initial_release_key)
+        selected_version = category_versions[initial_release_key]
+      elsif category_versions.key?(ruby_version)
         selected_version = category_versions[ruby_version]
       else
         # Fall back to the highest patch version matching the given major.minor
