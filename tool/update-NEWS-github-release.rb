@@ -3,7 +3,6 @@
 require "bundler/inline"
 require "json"
 require "net/http"
-require "set"
 require "uri"
 
 gemfile do
@@ -162,8 +161,6 @@ def resolve_repo(name)
     { repo: name, org: "minitest" }
   when "test-unit"
     { repo: name, org: "test-unit" }
-  when "bundler"
-    { repo: "rubygems", org: "ruby" }
   else
     { repo: name, org: "ruby" }
   end
@@ -209,12 +206,10 @@ def collect_gem_updates(versions_from, versions_to)
     release_range = fetch_release_range(name, versions_from[name], version, org, repo)
     next unless release_range
 
-    footnote_links = []
-    release_range.each do |rel|
-      footnote_links << {
+    footnote_links = release_range.map do |rel|
+      {
         ref: "#{name}-#{rel.sub(/^bundler-/, '')}",
         url: "https://github.com/#{org}/#{repo}/releases/tag/#{rel}",
-        tag: rel.sub(/^bundler-/, ''),
       }
     end
 
@@ -267,12 +262,11 @@ def update_news_md(results)
     # Check if this line is a gem bullet like "* gemname x.y.z"
     if line =~ /^\* ([A-Za-z0-9_\-]+)\s+(\d+(?:\.\d+){0,3})\b/
       gem_name = $1
-      gem_name_normalized = gem_name == "RubyGems" ? "RubyGems" : gem_name
 
       new_lines << line
 
-      if result_by_name.key?(gem_name_normalized)
-        r = result_by_name[gem_name_normalized]
+      if result_by_name.key?(gem_name)
+        r = result_by_name[gem_name]
 
         # Skip any existing sub-bullet lines that follow (lines starting with spaces + *)
         while i + 1 < lines.length && lines[i + 1] =~ /^\s+\*/
