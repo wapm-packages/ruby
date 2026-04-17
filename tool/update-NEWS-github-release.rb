@@ -275,36 +275,44 @@ def update_news_md(results)
     i += 1
   end
 
-  # Collect all new footnote links
-  all_footnotes = []
+  # All footnote definitions we can emit from this run, indexed by ref name
+  available_footnotes = {}
   results.each do |r|
     r[:footnote_links].each do |fl|
-      all_footnotes << "[#{fl[:ref]}]: #{fl[:url]}"
+      available_footnotes[fl[:ref]] = "[#{fl[:ref]}]: #{fl[:url]}"
     end
   end
 
-  # Remove any existing footnote links that we are about to add (avoid duplicates)
-  existing_refs = Set.new(all_footnotes.map { |f| f[/^\[([^\]]+)\]:/, 1] })
-  new_lines = new_lines.reject do |line|
-    if line =~ /^\[([^\]]+)\]:\s+https:\/\/github\.com\//
-      existing_refs.include?($1)
-    else
-      false
+  # Refs the regenerated body actually uses (e.g. `][gem-vX.Y.Z]`)
+  used_refs = new_lines.join.scan(/\]\[([^\]]+)\]/).flatten.uniq
+  used_set = used_refs.to_set
+
+  # Drop existing GitHub release-tag link defs that are either orphaned (no
+  # body reference) or about to be re-emitted from this run's results. Defs
+  # still referenced by gems we couldn't refresh are preserved in place.
+  release_ref_pattern = %r{^\[([^\]]+)\]:\s+https://github\.com/[^/]+/[^/]+/releases/tag/}
+  new_lines.reject! do |line|
+    if (m = line.match(release_ref_pattern))
+      ref = m[1]
+      !used_set.include?(ref) || available_footnotes.key?(ref)
     end
   end
 
-  # Ensure the file ends with a newline before adding footnotes
-  unless new_lines.last&.end_with?("\n")
-    new_lines << "\n"
-  end
+  # Trim trailing blank lines so the appended footer block is clean
+  new_lines.pop while new_lines.last == "\n"
+  new_lines << "\n" unless new_lines.last&.end_with?("\n")
 
-  # Append footnote links at the end of the file
-  all_footnotes.each do |footnote|
-    new_lines << "#{footnote}\n"
+  # Append footnote defs only for refs the body still references
+  emitted = 0
+  used_refs.each do |ref|
+    if (footnote = available_footnotes[ref])
+      new_lines << "#{footnote}\n"
+      emitted += 1
+    end
   end
 
   File.write(news_path, new_lines.join)
-  puts "Updated #{news_path} with #{results.length} gem update entries and #{all_footnotes.length} footnote links."
+  puts "Updated #{news_path} with #{results.length} gem update entries and #{emitted} footnote links."
 end
 
 # --- Main ---
