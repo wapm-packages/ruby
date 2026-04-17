@@ -206,12 +206,16 @@ def resolve_repo(name)
     { repo: name, org: "minitest" }
   when "test-unit"
     { repo: name, org: "test-unit" }
+  when "RubyGems"
+    { repo: "rubygems", org: "rubygems" }
+  when "bundler"
+    { repo: "rubygems", org: "rubygems", tag_prefix: "bundler-" }
   else
     { repo: name, org: "ruby" }
   end
 end
 
-def fetch_release_range(name, from_version, to_version, org, repo)
+def fetch_release_range(name, from_version, to_version, org, repo, tag_prefix: "")
   releases = []
   begin
     Octokit.releases("#{org}/#{repo}").each do |release|
@@ -222,12 +226,18 @@ def fetch_release_range(name, from_version, to_version, org, repo)
     return nil
   end
 
-  # Keep only version-like tags and sort ascending by semantic version
-  releases = releases.select { |t| t =~ /^v\d/ || t =~ /^\d/ }
-  releases = releases.sort_by { |t| Gem::Version.new(t.sub(/^v/, "").tr("_", ".")) }
+  # Keep only this gem's version-like tags and sort ascending by semantic version
+  prefix = Regexp.escape(tag_prefix)
+  releases = releases.select { |t| t =~ /\A#{prefix}v?\d/ }
+  releases = releases.sort_by { |t| Gem::Version.new(t.sub(/\A#{prefix}/, "").sub(/^v/, "").tr("_", ".")) }
 
-  start_index = releases.index("v#{from_version}") || releases.index(from_version)
-  end_index = releases.index("v#{to_version}") || releases.index(to_version)
+  start_index = releases.index("#{tag_prefix}v#{from_version}") || releases.index("#{tag_prefix}#{from_version}")
+  end_index = releases.index("#{tag_prefix}v#{to_version}") || releases.index("#{tag_prefix}#{to_version}")
+
+  # If the "to" version is unreleased (e.g. 4.1.0.dev), include every released
+  # tag after the baseline up to the latest one available.
+  end_index ||= releases.length - 1 if to_version =~ /(?:\.|-)(?:dev|beta|alpha|rc|pre)/i
+
   return nil unless start_index && end_index
 
   range = releases[start_index + 1..end_index]
@@ -242,18 +252,19 @@ def collect_gem_updates(versions_from, versions_to)
   versions_to.each do |name, version|
     # Skip items which do not exist in the FROM map to reduce API calls
     next unless versions_from.key?(name)
-    next if name == "RubyGems" || name == "bundler"
 
     info = resolve_repo(name)
     org = info[:org]
     repo = info[:repo]
+    tag_prefix = info[:tag_prefix] || ""
 
-    release_range = fetch_release_range(name, versions_from[name], version, org, repo)
+    release_range = fetch_release_range(name, versions_from[name], version, org, repo, tag_prefix: tag_prefix)
     next unless release_range
 
     footnote_links = release_range.map do |rel|
+      tag = rel.sub(/\A#{Regexp.escape(tag_prefix)}/, "")
       {
-        ref: "#{name}-#{rel}",
+        ref: "#{name}-#{tag}",
         url: "https://github.com/#{org}/#{repo}/releases/tag/#{rel}",
       }
     end
@@ -264,6 +275,7 @@ def collect_gem_updates(versions_from, versions_to)
       from_version: versions_from[name],
       release_range: release_range,
       footnote_links: footnote_links,
+      tag_prefix: tag_prefix,
     }
   end
 
@@ -271,8 +283,10 @@ def collect_gem_updates(versions_from, versions_to)
 end
 
 def format_release_diff(result)
+  prefix = Regexp.escape(result[:tag_prefix] || "")
   links = result[:release_range].map do |rel|
-    "[#{rel}][#{result[:name]}-#{rel}]"
+    tag = rel.sub(/\A#{prefix}/, "")
+    "[#{tag}][#{result[:name]}-#{tag}]"
   end
   "  * #{result[:from_version]} to #{links.join(', ')}"
 end
