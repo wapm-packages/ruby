@@ -81,14 +81,14 @@ def load_versions(arg)
   elsif arg.match?(/^\d+\.\d+(?:\.\d+)?$/)
     fetch_default_gems_versions(arg)
   elsif arg.downcase == "news" || arg =~ %r{https?://.*/NEWS\.md}
-    fetch_versions_to_from_news(arg)
+    fetch_versions_from_news(arg)
   else
     abort "Invalid argument: #{arg}. Provide a file path or a Ruby version (e.g., 3.4)."
   end
 end
 
 # Build a gem=>version map by parsing the "## Stdlib updates" section from Ruby's NEWS.md
-def fetch_versions_to_from_news(arg)
+def fetch_versions_from_news(arg)
   if arg.downcase == "news"
     body = read_local_news_md
   else
@@ -216,11 +216,11 @@ def fetch_release_range(name, from_version, to_version, org, repo)
   end
 
   # Keep only version-like tags and sort ascending by semantic version
-  releases = releases.select { |t| t =~ /^v\d/ || t =~ /^\d/ || t =~ /^bundler-\d/ }
-  releases = releases.sort_by { |t| Gem::Version.new(t.sub(/^bundler-/, "").sub(/^v/, "").tr("_", ".")) }
+  releases = releases.select { |t| t =~ /^v\d/ || t =~ /^\d/ }
+  releases = releases.sort_by { |t| Gem::Version.new(t.sub(/^v/, "").tr("_", ".")) }
 
-  start_index = releases.index("v#{from_version}") || releases.index(from_version) || releases.index("bundler-v#{from_version}")
-  end_index = releases.index("v#{to_version}") || releases.index(to_version) || releases.index("bundler-v#{to_version}")
+  start_index = releases.index("v#{from_version}") || releases.index(from_version)
+  end_index = releases.index("v#{to_version}") || releases.index(to_version)
   return nil unless start_index && end_index
 
   range = releases[start_index + 1..end_index]
@@ -246,7 +246,7 @@ def collect_gem_updates(versions_from, versions_to)
 
     footnote_links = release_range.map do |rel|
       {
-        ref: "#{name}-#{rel.sub(/^bundler-/, '')}",
+        ref: "#{name}-#{rel}",
         url: "https://github.com/#{org}/#{repo}/releases/tag/#{rel}",
       }
     end
@@ -265,8 +265,7 @@ end
 
 def format_release_diff(result)
   links = result[:release_range].map do |rel|
-    tag = rel.sub(/^bundler-/, "")
-    "[#{tag}][#{result[:name]}-#{tag}]"
+    "[#{rel}][#{result[:name]}-#{rel}]"
   end
   "  * #{result[:from_version]} to #{links.join(', ')}"
 end
@@ -293,25 +292,20 @@ def update_news_md(results)
   content = File.read(news_path)
   lines = content.lines
 
-  # Build a lookup: gem name => result
-  result_by_name = {}
-  results.each { |r| result_by_name[r[:name]] = r }
+  result_by_name = results.to_h { |r| [r[:name], r] }
 
   new_lines = []
   i = 0
   while i < lines.length
     line = lines[i]
 
-    # Check if this line is a gem bullet like "* gemname x.y.z"
     if line =~ /^\* ([A-Za-z0-9_\-]+)\s+(\d+(?:\.\d+){0,3})\b/
       gem_name = $1
 
       new_lines << line
 
-      if result_by_name.key?(gem_name)
-        r = result_by_name[gem_name]
-
-        # Skip any existing sub-bullet lines that follow (lines starting with spaces + *)
+      if (r = result_by_name[gem_name])
+        # Skip any existing sub-bullet lines that follow
         while i + 1 < lines.length && lines[i + 1] =~ /^\s+\*/
           i += 1
         end
