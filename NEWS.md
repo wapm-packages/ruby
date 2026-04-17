@@ -82,7 +82,7 @@ releases.
 * resolv 0.7.1
   * 0.7.0 to [v0.7.1][resolv-v0.7.1]
 * stringio 3.2.1.dev
-* strscan 3.1.7.dev
+* strscan 3.1.9.dev
   * 3.1.6 to [v3.1.7][strscan-v3.1.7], [v3.1.8][strscan-v3.1.8]
 * syntax_suggest 3.0.0
 * timeout 0.6.1
