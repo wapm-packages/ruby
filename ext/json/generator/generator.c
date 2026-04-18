@@ -819,9 +819,17 @@ static VALUE encode_json_string_rescue(VALUE str, VALUE exception)
     return Qundef;
 }
 
+static inline int json_str_coderange(VALUE str) {
+    int coderange = RB_ENC_CODERANGE(str);
+    if (coderange == RUBY_ENC_CODERANGE_UNKNOWN) {
+        coderange = rb_enc_str_coderange(str);
+    }
+    return coderange;
+}
+
 static inline bool valid_json_string_p(VALUE str)
 {
-    int coderange = rb_enc_str_coderange(str);
+    int coderange = json_str_coderange(str);
 
     if (RB_LIKELY(coderange == ENC_CODERANGE_7BIT)) {
         return true;
@@ -893,7 +901,7 @@ static void raw_generate_json_string(FBuffer *buffer, struct generate_json_data 
     search.chunk_end = NULL;
 #endif /* HAVE_SIMD */
 
-    switch (rb_enc_str_coderange(obj)) {
+    switch (json_str_coderange(obj)) {
         case ENC_CODERANGE_7BIT:
         case ENC_CODERANGE_VALID:
             if (RB_UNLIKELY(data->state->ascii_only)) {
