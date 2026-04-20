@@ -166,26 +166,6 @@ A lot of work has gone into making Ractors more stable, performant, and usable. 
 [Feature #21853]: https://bugs.ruby-lang.org/issues/21853
 [Feature #21861]: https://bugs.ruby-lang.org/issues/21861
 [Feature #21932]: https://bugs.ruby-lang.org/issues/21932
-[rbs-v3.10.1]: https://github.com/ruby/rbs/releases/tag/v3.10.1
-[rbs-v3.10.2]: https://github.com/ruby/rbs/releases/tag/v3.10.2
-[rbs-v3.10.3]: https://github.com/ruby/rbs/releases/tag/v3.10.3
-[rbs-v3.10.4]: https://github.com/ruby/rbs/releases/tag/v3.10.4
-[rbs-v4.0.0.dev.5]: https://github.com/ruby/rbs/releases/tag/v4.0.0.dev.5
-[rbs-v4.0.0]: https://github.com/ruby/rbs/releases/tag/v4.0.0
-[rbs-v4.0.2]: https://github.com/ruby/rbs/releases/tag/v4.0.2
-[bigdecimal-v4.1.0]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.0
-[bigdecimal-v4.1.1]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.1
-[bigdecimal-v4.1.2]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.2
-[resolv-replace-v0.2.0]: https://github.com/ruby/resolv-replace/releases/tag/v0.2.0
-[syslog-v0.4.0]: https://github.com/ruby/syslog/releases/tag/v0.4.0
-[repl_type_completor-v0.1.13]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.13
-[repl_type_completor-v0.1.14]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.14
-[repl_type_completor-v0.1.15]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.15
-[pstore-v0.2.1]: https://github.com/ruby/pstore/releases/tag/v0.2.1
-[rdoc-v7.1.0]: https://github.com/ruby/rdoc/releases/tag/v7.1.0
-[rdoc-v7.2.0]: https://github.com/ruby/rdoc/releases/tag/v7.2.0
-[win32ole-v1.9.3]: https://github.com/ruby/win32ole/releases/tag/v1.9.3
-[irb-v1.17.0]: https://github.com/ruby/irb/releases/tag/v1.17.0
 [RubyGems-v4.0.4]: https://github.com/rubygems/rubygems/releases/tag/v4.0.4
 [RubyGems-v4.0.5]: https://github.com/rubygems/rubygems/releases/tag/v4.0.5
 [RubyGems-v4.0.6]: https://github.com/rubygems/rubygems/releases/tag/v4.0.6
@@ -223,3 +203,23 @@ A lot of work has gone into making Ractors more stable, performant, and usable. 
 [test-unit-3.7.6]: https://github.com/test-unit/test-unit/releases/tag/3.7.6
 [test-unit-3.7.7]: https://github.com/test-unit/test-unit/releases/tag/3.7.7
 [net-imap-v0.6.3]: https://github.com/ruby/net-imap/releases/tag/v0.6.3
+[rbs-v3.10.1]: https://github.com/ruby/rbs/releases/tag/v3.10.1
+[rbs-v3.10.2]: https://github.com/ruby/rbs/releases/tag/v3.10.2
+[rbs-v3.10.3]: https://github.com/ruby/rbs/releases/tag/v3.10.3
+[rbs-v3.10.4]: https://github.com/ruby/rbs/releases/tag/v3.10.4
+[rbs-v4.0.0.dev.5]: https://github.com/ruby/rbs/releases/tag/v4.0.0.dev.5
+[rbs-v4.0.0]: https://github.com/ruby/rbs/releases/tag/v4.0.0
+[rbs-v4.0.2]: https://github.com/ruby/rbs/releases/tag/v4.0.2
+[bigdecimal-v4.1.0]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.0
+[bigdecimal-v4.1.1]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.1
+[bigdecimal-v4.1.2]: https://github.com/ruby/bigdecimal/releases/tag/v4.1.2
+[resolv-replace-v0.2.0]: https://github.com/ruby/resolv-replace/releases/tag/v0.2.0
+[syslog-v0.4.0]: https://github.com/ruby/syslog/releases/tag/v0.4.0
+[repl_type_completor-v0.1.13]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.13
+[repl_type_completor-v0.1.14]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.14
+[repl_type_completor-v0.1.15]: https://github.com/ruby/repl_type_completor/releases/tag/v0.1.15
+[pstore-v0.2.1]: https://github.com/ruby/pstore/releases/tag/v0.2.1
+[rdoc-v7.1.0]: https://github.com/ruby/rdoc/releases/tag/v7.1.0
+[rdoc-v7.2.0]: https://github.com/ruby/rdoc/releases/tag/v7.2.0
+[win32ole-v1.9.3]: https://github.com/ruby/win32ole/releases/tag/v1.9.3
+[irb-v1.17.0]: https://github.com/ruby/irb/releases/tag/v1.17.0
