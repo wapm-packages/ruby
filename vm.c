@@ -561,6 +561,7 @@ zjit_compile(rb_execution_context_t *ec)
 
 static inline void zjit_materialize_frames(rb_control_frame_t *cfp);
 
+#if USE_YJIT || USE_ZJIT
 // Execute JIT code compiled by yjit_compile() or zjit_compile()
 static inline VALUE
 jit_exec(rb_execution_context_t *ec)
@@ -595,7 +596,6 @@ jit_exec(rb_execution_context_t *ec)
     return Qundef;
 }
 
-#if USE_YJIT || USE_ZJIT
 // Generate JIT code that supports the following kind of ISEQ entry:
 //   * The first ISEQ pushed by vm_exec_handle_exception. The frame would
 //     point to a location specified by a catch table, and it doesn't have
@@ -652,6 +652,7 @@ jit_exec_exception(rb_execution_context_t *ec)
 }
 #else
 # define jit_compile_exception(ec) ((rb_jit_func_t)0)
+# define jit_exec(ec) Qundef
 # define jit_exec_exception(ec) Qundef
 #endif
 
