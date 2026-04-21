@@ -92,7 +92,7 @@ releases.
 
 ### The following bundled gems are updated.
 
-* minitest 6.0.4
+* minitest 6.0.5
 * rake 13.4.2
   * 13.3.1 to [v13.4.0][rake-v13.4.0], [v13.4.1][rake-v13.4.1], [v13.4.2][rake-v13.4.2]
 * test-unit 3.7.7
