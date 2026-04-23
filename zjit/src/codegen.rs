@@ -52,9 +52,6 @@ const JIT_RETURN_POISON: Option<usize> = if cfg!(feature = "runtime_checks") {
 
 /// Ephemeral code generation state
 struct JITState {
-    /// Instruction sequence for the method being compiled
-    iseq: IseqPtr,
-
     /// ISEQ version that is being compiled, which will be used by PatchPoint
     version: IseqVersionRef,
 
@@ -73,9 +70,8 @@ struct JITState {
 
 impl JITState {
     /// Create a new JITState instance
-    fn new(iseq: IseqPtr, version: IseqVersionRef, num_insns: usize, num_blocks: usize) -> Self {
+    fn new(version: IseqVersionRef, num_insns: usize, num_blocks: usize) -> Self {
         JITState {
-            iseq,
             version,
             opnds: vec![None; num_insns],
             labels: vec![None; num_blocks],
@@ -379,7 +375,7 @@ fn gen_iseq_body(cb: &mut CodeBlock, iseq: IseqPtr, mut version: IseqVersionRef,
 fn gen_function(cb: &mut CodeBlock, iseq: IseqPtr, version: IseqVersionRef, function: &Function) -> Result<(IseqCodePtrs, Vec<CodePtr>, Vec<IseqCallRef>), CompileError> {
     let (mut jit, asm) = trace_compile_phase("codegen", || {
         let num_spilled_params = max_num_params(function).saturating_sub(ALLOC_REGS.len());
-        let mut jit = JITState::new(iseq, version, function.num_insns(), function.num_blocks());
+        let mut jit = JITState::new(version, function.num_insns(), function.num_blocks());
         let mut asm = Assembler::new_with_stack_slots(num_spilled_params);
 
         // Mapping from HIR block IDs to LIR block IDs.
@@ -706,7 +702,7 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         &Insn::FixnumMod { left, right, state } => gen_fixnum_mod(jit, asm, opnd!(left), opnd!(right), &function.frame_state(state)),
         &Insn::FixnumAref { recv, index } => gen_fixnum_aref(asm, opnd!(recv), opnd!(index)),
         Insn::IsNil { val } => gen_isnil(asm, opnd!(val)),
-        &Insn::IsMethodCfunc { val, cd, cfunc, state: _ } => gen_is_method_cfunc(jit, asm, opnd!(val), cd, cfunc),
+        &Insn::IsMethodCfunc { val, cd, cfunc, state } => gen_is_method_cfunc(asm, opnd!(val), cd, cfunc, &function.frame_state(state)),
         &Insn::IsBitEqual { left, right } => gen_is_bit_equal(asm, opnd!(left), opnd!(right)),
         &Insn::IsBitNotEqual { left, right } => gen_is_bit_not_equal(asm, opnd!(left), opnd!(right)),
         &Insn::BoxBool { val } => gen_box_bool(asm, opnd!(val)),
@@ -733,7 +729,7 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         Insn::CCallVariadic { cfunc, recv, name, args, cme, state, block, return_type: _, elidable: _ } => {
             gen_ccall_variadic(jit, asm, *cfunc, *name, opnd!(recv), opnds!(args), *cme, *block, &function.frame_state(*state))
         }
-        Insn::GetIvar { self_val, id, ic, state: _ } => gen_getivar(jit, asm, opnd!(self_val), *id, *ic),
+        Insn::GetIvar { self_val, id, ic, state } => gen_getivar(asm, opnd!(self_val), *id, *ic, &function.frame_state(*state)),
         Insn::SetGlobal { id, val, state } => no_output!(gen_setglobal(jit, asm, *id, opnd!(val), &function.frame_state(*state))),
         Insn::GetGlobal { id, state } => gen_getglobal(jit, asm, *id, &function.frame_state(*state)),
         &Insn::IsBlockParamModified { flags } => gen_is_block_param_modified(asm, opnd!(flags)),
@@ -748,7 +744,7 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
         Insn::SideExit { state, reason, recompile } => no_output!(gen_side_exit(jit, asm, reason, *recompile, &function.frame_state(*state))),
         Insn::PutSpecialObject { value_type } => gen_putspecialobject(asm, *value_type),
         Insn::AnyToString { val, str, state } => gen_anytostring(asm, opnd!(val), opnd!(str), &function.frame_state(*state)),
-        Insn::Defined { op_type, obj, pushval, v, state } => gen_defined(jit, asm, *op_type, *obj, *pushval, opnd!(v), &function.frame_state(*state)),
+        Insn::Defined { op_type, obj, pushval, v, lep_level, state } => gen_defined(jit, asm, *op_type, *obj, *pushval, opnd!(v), *lep_level, &function.frame_state(*state)),
         Insn::CheckMatch { target, pattern, flag, state } => gen_checkmatch(jit, asm, opnd!(target), opnd!(pattern), *flag, &function.frame_state(*state)),
         Insn::GetSpecialSymbol { symbol_type, state: _ } => gen_getspecial_symbol(asm, *symbol_type),
         Insn::GetSpecialNumber { nth, state } => gen_getspecial_number(asm, *nth, &function.frame_state(*state)),
@@ -794,13 +790,6 @@ fn gen_insn(cb: &mut CodeBlock, jit: &mut JITState, asm: &mut Assembler, functio
     Ok(())
 }
 
-/// Gets the EP of the ISeq of the containing method, or "local level".
-/// Equivalent of GET_LEP() macro.
-fn gen_get_lep(jit: &JITState, asm: &mut Assembler) -> Opnd {
-    let level = get_lvar_level(jit.iseq);
-    gen_get_ep(asm, level)
-}
-
 // Get EP at `level` from CFP
 fn gen_get_ep(asm: &mut Assembler, level: u32) -> Opnd {
     // Load environment pointer EP from CFP into a register
@@ -835,18 +824,12 @@ fn gen_objtostring(jit: &mut JITState, asm: &mut Assembler, val: Opnd, cd: *cons
     ret
 }
 
-fn gen_defined(jit: &JITState, asm: &mut Assembler, op_type: usize, obj: VALUE, pushval: VALUE, tested_value: Opnd, state: &FrameState) -> Opnd {
+fn gen_defined(jit: &JITState, asm: &mut Assembler, op_type: usize, obj: VALUE, pushval: VALUE, tested_value: Opnd, lep_level: u32, state: &FrameState) -> Opnd {
     match op_type as defined_type {
         DEFINED_YIELD => {
-            // `yield` goes to the block handler stowed in the "local" iseq which is
-            // the current iseq or a parent. Only the "method" iseq type can be passed a
-            // block handler. (e.g. `yield` in the top level script is a syntax error.)
-            //
-            // Similar to gen_is_block_given
-            let local_iseq = unsafe { rb_get_iseq_body_local_iseq(jit.iseq) };
-            assert_eq!(unsafe { rb_get_iseq_body_type(local_iseq) }, ISEQ_TYPE_METHOD,
-                       "defined?(yield) in non-method iseq should be handled by HIR construction");
-            let lep = gen_get_lep(jit, asm);
+            // `lep_level` was precomputed at HIR construction so we can materialize the local EP
+            // inline without walking the parent iseq chain here.
+            let lep = gen_get_ep(asm, lep_level);
             let block_handler = asm.load(Opnd::mem(64, lep, SIZEOF_VALUE_I32 * VM_ENV_DATA_INDEX_SPECVAL));
             let pushval = asm.load(pushval.into());
             asm.cmp(block_handler, VM_BLOCK_HANDLER_NONE.into());
@@ -1210,11 +1193,11 @@ fn gen_ccall_variadic(
 }
 
 /// Emit an uncached instance variable lookup
-fn gen_getivar(jit: &mut JITState, asm: &mut Assembler, recv: Opnd, id: ID, ic: *const iseq_inline_iv_cache_entry) -> Opnd {
+fn gen_getivar(asm: &mut Assembler, recv: Opnd, id: ID, ic: *const iseq_inline_iv_cache_entry, state: &FrameState) -> Opnd {
     if ic.is_null() {
         asm_ccall!(asm, rb_ivar_get, recv, id.0.into())
     } else {
-        let iseq = Opnd::Value(jit.iseq.into());
+        let iseq = Opnd::Value(state.iseq.into());
         asm_ccall!(asm, rb_vm_getinstancevariable, iseq, recv, id.0.into(), Opnd::const_ptr(ic))
     }
 }
@@ -1226,19 +1209,19 @@ fn gen_setivar(jit: &mut JITState, asm: &mut Assembler, recv: Opnd, id: ID, ic: 
     if ic.is_null() {
         asm_ccall!(asm, rb_ivar_set, recv, id.0.into(), val);
     } else {
-        let iseq = Opnd::Value(jit.iseq.into());
+        let iseq = Opnd::Value(state.iseq.into());
         asm_ccall!(asm, rb_vm_setinstancevariable, iseq, recv, id.0.into(), val, Opnd::const_ptr(ic));
     }
 }
 
 fn gen_getclassvar(jit: &mut JITState, asm: &mut Assembler, id: ID, ic: *const iseq_inline_cvar_cache_entry, state: &FrameState) -> Opnd {
     gen_prepare_non_leaf_call(jit, asm, state);
-    asm_ccall!(asm, rb_vm_getclassvariable, VALUE::from(jit.iseq).into(), CFP, id.0.into(), Opnd::const_ptr(ic))
+    asm_ccall!(asm, rb_vm_getclassvariable, VALUE::from(state.iseq).into(), CFP, id.0.into(), Opnd::const_ptr(ic))
 }
 
 fn gen_setclassvar(jit: &mut JITState, asm: &mut Assembler, id: ID, val: Opnd, ic: *const iseq_inline_cvar_cache_entry, state: &FrameState) {
     gen_prepare_non_leaf_call(jit, asm, state);
-    asm_ccall!(asm, rb_vm_setclassvariable, VALUE::from(jit.iseq).into(), CFP, id.0.into(), val, Opnd::const_ptr(ic));
+    asm_ccall!(asm, rb_vm_setclassvariable, VALUE::from(state.iseq).into(), CFP, id.0.into(), val, Opnd::const_ptr(ic));
 }
 
 /// Look up global variables
@@ -2435,11 +2418,11 @@ fn gen_isnil(asm: &mut Assembler, val: lir::Opnd) -> lir::Opnd {
     asm.csel_e(Opnd::Imm(1), Opnd::Imm(0))
 }
 
-fn gen_is_method_cfunc(jit: &JITState, asm: &mut Assembler, val: lir::Opnd, cd: *const rb_call_data, cfunc: *const u8) -> lir::Opnd {
+fn gen_is_method_cfunc(asm: &mut Assembler, val: lir::Opnd, cd: *const rb_call_data, cfunc: *const u8, state: &FrameState) -> lir::Opnd {
     unsafe extern "C" {
         fn rb_vm_method_cfunc_is(iseq: IseqPtr, cd: *const rb_call_data, recv: VALUE, cfunc: *const u8) -> VALUE;
     }
-    asm_ccall!(asm, rb_vm_method_cfunc_is, VALUE::from(jit.iseq).into(), Opnd::const_ptr(cd), val, Opnd::const_ptr(cfunc))
+    asm_ccall!(asm, rb_vm_method_cfunc_is, VALUE::from(state.iseq).into(), Opnd::const_ptr(cd), val, Opnd::const_ptr(cfunc))
 }
 
 fn gen_is_bit_equal(asm: &mut Assembler, left: lir::Opnd, right: lir::Opnd) -> lir::Opnd {
@@ -2867,7 +2850,7 @@ fn gen_spill_locals(jit: &JITState, asm: &mut Assembler, state: &FrameState) {
     gen_incr_counter(asm, Counter::vm_write_locals_count);
     asm_comment!(asm, "spill locals");
     for (idx, &insn_id) in state.locals().enumerate() {
-        asm.mov(Opnd::mem(64, SP, (-local_idx_to_ep_offset(jit.iseq, idx) - 1) * SIZEOF_VALUE_I32), jit.get_opnd(insn_id));
+        asm.mov(Opnd::mem(64, SP, (-local_idx_to_ep_offset(state.iseq, idx) - 1) * SIZEOF_VALUE_I32), jit.get_opnd(insn_id));
     }
 }
 
@@ -3041,7 +3024,7 @@ fn side_exit(jit: &JITState, state: &FrameState, reason: SideExitReason) -> Targ
 fn side_exit_with_recompile(jit: &JITState, state: &FrameState, reason: SideExitReason, recompile: Option<Recompile>) -> Target {
     let mut exit = build_side_exit(jit, state);
     exit.recompile = recompile.map(|strategy| SideExitRecompile {
-        iseq: Opnd::Value(VALUE::from(jit.iseq)),
+        iseq: Opnd::Value(VALUE::from(state.iseq)),
         insn_idx: state.insn_idx() as u32,
         strategy,
     });
@@ -3064,7 +3047,7 @@ fn build_side_exit(jit: &JITState, state: &FrameState) -> SideExit {
         pc: Opnd::const_ptr(state.pc),
         stack,
         locals,
-        iseq: jit.iseq,
+        iseq: state.iseq,
         recompile: None,
     }
 }
