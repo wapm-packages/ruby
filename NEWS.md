@@ -73,6 +73,7 @@ releases.
   * 4.0.3 to [v4.0.4][bundler-v4.0.4], [v4.0.5][bundler-v4.0.5], [v4.0.6][bundler-v4.0.6], [v4.0.7][bundler-v4.0.7], [v4.0.8][bundler-v4.0.8], [v4.0.9][bundler-v4.0.9], [v4.0.10][bundler-v4.0.10]
 * erb 6.0.4
   * 6.0.1 to [v6.0.2][erb-v6.0.2], [v6.0.3][erb-v6.0.3]
+* ipaddr 1.2.9
 * json 2.19.4
   * 2.18.0 to [v2.18.1][json-v2.18.1], [v2.19.0][json-v2.19.0], [v2.19.1][json-v2.19.1], [v2.19.2][json-v2.19.2], [v2.19.3][json-v2.19.3], [v2.19.4][json-v2.19.4]
 * openssl 4.0.1
