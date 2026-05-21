@@ -68,7 +68,7 @@ jobs:
           /usr/local/bin/gem -v
           /usr/local/bin/bundle -v
         if: matrix.test_task == 'check'
-      - uses: ruby/action-slack@54175162371f1f7c8eb94d7c8644ee2479fcd375 # v3.2.2
+      - uses: ruby/action-slack@d260b61aa817726d5bedd22dd6cc305787fa4cdd # v4.0.0
         with:
           payload: |
             {
@@ -81,7 +81,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SIMPLER_ALERTS_URL }}
         if: failure()
-      - uses: ruby/action-slack@54175162371f1f7c8eb94d7c8644ee2479fcd375 # v3.2.2
+      - uses: ruby/action-slack@d260b61aa817726d5bedd22dd6cc305787fa4cdd # v4.0.0
         with:
           payload: |
             {
