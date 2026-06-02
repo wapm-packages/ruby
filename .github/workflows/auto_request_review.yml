@@ -14,7 +14,7 @@ jobs:
     if: ${{ github.repository == 'ruby/ruby' && github.base_ref == 'master' }}
     steps:
       - name: Request review based on files changes and/or groups the author belongs to
-        uses: necojackarc/auto-request-review@5d3060495e58e9cb41f51de50e808d3135d5374e # master
+        uses: necojackarc/auto-request-review@d340873f18ca7a85131f66b038a4ac1ebf9a3896 # master
         with:
           # scope: public_repo
           token: ${{ secrets.MATZBOT_AUTO_REQUEST_REVIEW_TOKEN }}
